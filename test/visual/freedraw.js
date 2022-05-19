@@ -2072,6 +2072,7 @@
     result: true,
     /**
      * compare visuals between `mesh` and `result`
+     * set to `false` when using the `decimate` option
      */
     compare: true
   }
@@ -2206,7 +2207,7 @@
   });
 
   var visualTester = visualTestLoop(QUnit);
-  //var compareGoldens = compareGoldensTest(QUnit);
+  var compareGoldens = compareGoldensTest(QUnit);
   tests[0].newModule = 'Free Drawing';
   tests.forEach(function (test) {
     var options = Object.assign({}, freeDrawingTestDefaults, test.targets);
@@ -2249,6 +2250,6 @@
         callback(canvas.lowerCanvasEl);
       }
     }));
-    //options.compare && compareGoldens(`${test.test} (mesh <> result)`, test.golden, `mesh_${test.golden}`, test.percentage);
+    options.compare && compareGoldens(`${test.test} (mesh <> result)`, test.golden, `mesh_${test.golden}`, test.percentage);
   });
 })();
