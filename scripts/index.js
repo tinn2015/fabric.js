@@ -369,7 +369,7 @@ program
     .option('-o, --overwrite', 'overwrite exisitng files', false)
     .option('-x, --exports', 'use exports', true)
     .option('-i, --index', 'create index files', true)
-    .option('-ts, --ts, --typescript', 'transform into typescript', false)
+    .option('-ts, --typescript', 'transform into typescript', false)
     .action(({ overwrite, exports, index, typescript } = {}) => {
         require('./transform_file').convert({
             overwriteExisitingFiles: overwrite,
