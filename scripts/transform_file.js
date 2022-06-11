@@ -60,6 +60,7 @@ function removeCommas(raw) {
     ];
     const stack = [];
     const commas = [];
+    const props = [];
     while (index < raw.length) {
         if (pairs.some(t => t.test('opening', index, raw))) {
             stack.push(raw[index]);
@@ -70,22 +71,17 @@ function removeCommas(raw) {
         else if (raw[index] === ',' && stack.length === 1) {
             commas.push(index);
         }
+        else if (raw[index] === ':' && stack.length === 1) {
+            const trim = raw.slice(0, index - 1).trim();
+            const result = /\s*(.+)$/.exec(trim);
+            console.log(result.index,result[0])
+            result && props.push(result[1])
+        }
         index++;
     }
     commas.reverse().forEach(pos => {
         raw = raw.slice(0, pos) + raw.slice(pos + 1);
     })
-    return raw;
-}
-
-function removeComments(raw) {
-    const startChar = '/**', endChar = '*/';
-    let start = raw.indexOf(), end;
-    while (start > -1) {
-        end = raw.indexOf(endChar, start);
-        raw = raw.slice(0, start) + raw.slice(end + endChar.length + 1);
-        start = raw.indexOf(startChar);
-    }
     return raw;
 }
 
@@ -191,17 +187,18 @@ function transformFile(raw, { namespace, name } = {}) {
  */
 function transformClass(type, raw, className) {
     if (!type) throw new Error(chalk.red(`INVALID_ARGUMENT type`));
-    let {
+    const {
         prototype,
         match,
         name,
         namespace,
         superClass,
-        raw: rawClass,
+        raw: _rawClass,
         end,
         requiresSuperClassResolution,
         superClasses
     } = type === 'mixin' ? findMixin(raw) : findClass(raw);
+    let rawClass = removeCommas(_rawClass);
     const getPropStart = (key) => {
         const searchPhrase = `${key}\\s*:\\s*`;
         const regex = new RegExp(searchPhrase);
@@ -239,7 +236,6 @@ function transformClass(type, raw, className) {
             console.error(error);
         }
     } while (transformed !== rawClass);
-    rawClass = removeCommas(rawClass);
     const classDirective = type === 'mixin' ?
         generateMixin(rawClass, `${_.upperFirst(name)}${className.replace(new RegExp(name.toLowerCase()==='staticcanvas'?'canvas':name, 'i'), '')}` || name, namespace) :
         generateClass(rawClass, className || name, superClass);
