@@ -314,7 +314,7 @@ function convertFile(type, source, dest, options) {
             state: 'failure',
             type,
             source: path.relative(wd, source),
-            error
+            error: error.message
         });
         error.file = file;
         return error;
@@ -371,7 +371,7 @@ function convert(options = {}) {
         return convertFile('class', path.resolve(srcDir, file), dest, options);
     });
     finalize(mixinsDir, additionalFiles);
-    //return;
+    return;
     console.error(`failed files:`);
     failed.map(console.error)
 }
