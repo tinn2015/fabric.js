@@ -204,8 +204,10 @@ function transformClass(file) {
 const shapes = fs.readdirSync(path.resolve(wd, './src/shapes'));
 shapes.forEach(file => {
     if (path.parse(file).ext !== '.js') return;
+    const source = path.join('src', 'shapes', file);
+    const dest = path.resolve(wd, dest)
     try {
-        const { name, raw, staticCandidantes } = transformClass(path.join('src', 'shapes', file));
+        const { name, raw, staticCandidantes } = transformClass(source);
         if (staticCandidantes.length > 0) {
             console.log({
                 class: name,
@@ -214,11 +216,10 @@ shapes.forEach(file => {
                 staticCandidantes
             })
         }
-        fs.writeFileSync(path.resolve(wd, './src/shapes', `${name}.ts`), raw);
+        fs.writeFileSync(dest, raw);
     } catch (e) {
         console.error(file, e)
     }
-
 })
 fs.writeFileSync(path.resolve(wd, './src/Canvas.js'), transformClass('src/canvas.class.js').raw);
 fs.writeFileSync(path.resolve(wd, './src/Canvas.js'), transformClass('src/canvas.class.js').raw);
