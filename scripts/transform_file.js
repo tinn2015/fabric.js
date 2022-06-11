@@ -205,7 +205,7 @@ const shapes = fs.readdirSync(path.resolve(wd, './src/shapes'));
 shapes.forEach(file => {
     if (path.parse(file).ext !== '.js') return;
     const source = path.join('src', 'shapes', file);
-    const dest = path.resolve(wd, dest)
+    const dest = path.resolve(wd, source);
     try {
         const { name, raw, staticCandidantes } = transformClass(source);
         if (staticCandidantes.length > 0) {
