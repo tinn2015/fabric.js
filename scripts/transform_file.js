@@ -280,24 +280,22 @@ function convertFile(type, source, dest) {
     }
 }
 
-function logError(source, e) {
-    console.error(chalk.bold(chalk.yellow(`failed to convert ${path.relative(wd, source)}`)), e);
-}
-
 const classDirs = ['shapes', 'brushes', 'filters'];
 const mixinsDir = path.resolve(wd, './src/mixins');
 const srcDir = path.resolve(wd, './src');
+const fileExt = 'js';
+const overwriteExisitingFiles = false;
 classDirs.forEach(klsDir => {
     const dir = path.resolve(srcDir, klsDir);
     fs.readdirSync(dir).forEach(file => {
-        convertFile('class', path.resolve(dir, file), name => path.resolve(dir, `${name}.ts`));
+        convertFile('class', path.resolve(dir, file), overwriteExisitingFiles ? false : name => path.resolve(dir, `${name}.${fileExt}`));
     });
 })
 
 fs.readdirSync(mixinsDir).forEach(file => {
-    convertFile('mixin', path.resolve(mixinsDir, file), path.resolve(mixinsDir, `${getMixinName(file)}.ts`));
+    convertFile('mixin', path.resolve(mixinsDir, file), overwriteExisitingFiles ? false : path.resolve(mixinsDir, `${getMixinName(file)}.${fileExt}`));
 });
 const additionalFile = fs.readdirSync(srcDir).filter(file => !fs.lstatSync(path.resolve(srcDir, file)).isDirectory());
 additionalFile.forEach(file => {
-    convertFile('class', path.resolve(srcDir, file), name => path.resolve(srcDir, `${name}.ts`));
+    convertFile('class', path.resolve(srcDir, file), overwriteExisitingFiles ? false : name => path.resolve(srcDir, `${name}.${fileExt}`));
 });
