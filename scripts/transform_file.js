@@ -60,7 +60,7 @@ function removeCommas(raw) {
     ];
     const stack = [];
     const commas = [];
-    const props = [];
+    const fields = [];
     while (index < raw.length) {
         if (pairs.some(t => t.test('opening', index, raw))) {
             stack.push(raw[index]);
@@ -72,17 +72,16 @@ function removeCommas(raw) {
             commas.push(index);
         }
         else if (raw[index] === ':' && stack.length === 1) {
-            const trim = raw.slice(0, index - 1).trim();
+            const trim = raw.slice(0, index).trim();
             const result = /\s*(.+)$/.exec(trim);
-            console.log(result.index,result[0])
-            result && props.push(result[1])
+            result && fields.push(result[1])
         }
         index++;
     }
     commas.reverse().forEach(pos => {
         raw = raw.slice(0, pos) + raw.slice(pos + 1);
     })
-    return raw;
+    return { raw, fields };
 }
 
 /**
@@ -198,14 +197,14 @@ function transformClass(type, raw, className) {
         requiresSuperClassResolution,
         superClasses
     } = type === 'mixin' ? findMixin(raw) : findClass(raw);
-    let rawClass = removeCommas(_rawClass);
+    let { raw: rawClass, fields } = removeCommas(_rawClass);
     const getPropStart = (key) => {
         const searchPhrase = `${key}\\s*:\\s*`;
         const regex = new RegExp(searchPhrase);
         return { start: regex.exec(rawClass)?.index || -1, regex };
     }
     const staticCandidantes = [];
-    Object.keys(prototype).forEach((key) => {
+    fields.forEach((key) => {
         const object = prototype[key];
         if (typeof object === 'function') {
             const searchPhrase = `^(\\s*)${key}\\s*:\\s*function\\s*\\(`;
