@@ -166,17 +166,17 @@ function transformSuperCall(raw) {
     return raw.slice(0, result.index) + transformedCall + raw.slice(result.index + result[0].length);
 }
 
-function generateClass(rawClass, className, superClass) {
-    return `export class ${className}${superClass ? ` extends ${superClass}` : ''} ${rawClass}`;
+function generateClass(rawClass, className, superClass, useExports) {
+    return `${useExports ? 'export ' : ''}class ${className}${superClass ? ` extends ${superClass}` : ''} ${rawClass}`;
 }
 
 /**
  * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes#mix-ins
  */
-function generateMixin(rawClass, mixinName, baseClassNS) {
+function generateMixin(rawClass, mixinName, baseClassNS, useExports) {
     const funcName = `${mixinName}Generator`;
     return `
-export function ${funcName}(Klass) {
+${useExports ? 'export ' : ''}function ${funcName}(Klass) {
   return class ${mixinName||''} extends Klass ${rawClass}
 }
 
@@ -211,7 +211,8 @@ function transformFile(raw, { namespace, name } = {}) {
  * @param {'class'|'mixin'} type 
  * @returns 
  */
-function transformClass(type, raw, className) {
+function transformClass(type, raw, options = {}) {
+    const { className, useExports } = options;
     if (!type) throw new Error(`INVALID_ARGUMENT type`);
     const {
         match,
@@ -265,25 +266,25 @@ function transformClass(type, raw, className) {
         }
     } while (transformed !== rawClass);
     const classDirective = type === 'mixin' ?
-        generateMixin(rawClass, `${_.upperFirst(name)}${className.replace(new RegExp(name.toLowerCase()==='staticcanvas'?'canvas':name, 'i'), '')}` || name, namespace) :
-        generateClass(rawClass, className || name, superClass);
+        generateMixin(rawClass, `${_.upperFirst(name)}${className.replace(new RegExp(name.toLowerCase()==='staticcanvas'?'canvas':name, 'i'), '')}` || name, namespace, useExports) :
+        generateClass(rawClass, className || name, superClass, useExports);
     raw = `${raw.slice(0, match.index)}${classDirective}${raw.slice(end + 1).replace(/\s*\)\s*;?/, '')}`;
     if (type === 'mixin') {
         //  in case of multiple mixins in one file
         try {
-            return transformClass(type, raw, className);
+            return transformClass(type, raw, options);
         } catch (error) {
             
         }
     }
-    if (type === 'class') {
-        //raw = `${raw}\n/** @todo TODO_JS_MIGRATION remove next line after refactoring build */\n${namespace} = ${name};\n`;
+    if (type === 'class' && !useExports) {
+        raw = `${raw}\n/** @todo TODO_JS_MIGRATION remove next line after refactoring build */\n${namespace} = ${name};\n`;
     }
     raw = transformFile(raw, { namespace, name });
     return { name, raw, staticCandidantes, requiresSuperClassResolution, superClasses };
 }
 
-function convertFile(type, source, dest) {
+function convertFile(type, source, dest, options) {
     try {
         const {
             name,
@@ -291,7 +292,10 @@ function convertFile(type, source, dest) {
             staticCandidantes,
              requiresSuperClassResolution, 
             superClasses
-        } = transformClass(type, readFile(source), type === 'mixin' && getMixinName(path.parse(source).name));
+        } = transformClass(type, readFile(source), {
+            className: type === 'mixin' && getMixinName(path.parse(source).name),
+            ...options
+        });
         dest = (typeof dest === 'function' ? dest(name) : dest) || source;
         fs.writeFileSync(dest, raw);
         console.log({
@@ -332,7 +336,7 @@ function generateIndexFile(dir, files, ext) {
 
 function convert(options = {}) {
     const failed = [];
-    const { overwriteExisitingFiles, ext, createIndex } = _.defaults(options, { overwriteExisitingFiles: true, ext: 'js', createIndex: true });
+    const { overwriteExisitingFiles, ext, createIndex } = _.defaults(options, { overwriteExisitingFiles: true, ext: 'js', createIndex: true, useExports: true });
     const finalize = (dir, result) => {
         const [errors, files] = _.partition(result, file => file instanceof Error);
         failed.push(...errors);
