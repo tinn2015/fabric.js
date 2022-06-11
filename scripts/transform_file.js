@@ -190,7 +190,7 @@ function getMixinName(file) {
 }
 
 function transformFile(raw, { namespace, name } = {}) {
-    if (raw.startsWith('(function')) {
+    if (raw.replace(/\/\*.*\*\\s*/).startsWith('(function')) {
         const wrapper = findObject(raw, '{', '}');
         raw = wrapper.raw.slice(1, wrapper.raw.length - 1);
     }
