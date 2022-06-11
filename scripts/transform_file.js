@@ -180,7 +180,6 @@ function transformFile(raw, { namespace, name } = {}) {
         raw = raw.slice(0, result.index) + raw.slice(found.end+1);
     }
     raw = `//@ts-nocheck\n${raw}`;
-    //raw = `${raw}\n/** @todo TODO_JS_MIGRATION remove next line after refactoring build */\n${namespace} = ${name};\n`;
     return raw;
 }
 
@@ -242,7 +241,7 @@ function transformClass(type, raw, className) {
     } while (transformed !== rawClass);
     rawClass = removeCommas(rawClass);
     const classDirective = type === 'mixin' ?
-        generateMixin(rawClass, className.indexOf(name)===-1?`${_.upperFirst(name)}${className}`:className || name, namespace) :
+        generateMixin(rawClass, `${_.upperFirst(name)}${className.replace(new RegExp(name, 'i'), '')}` || name, namespace) :
         generateClass(rawClass, className || name, superClass);
     raw = `${raw.slice(0, match.index)}${classDirective}${raw.slice(end + 1).replace(/\s*\)\s*;?/, '')}`;
     if (type === 'mixin') {
@@ -252,6 +251,9 @@ function transformClass(type, raw, className) {
         } catch (error) {
             
         }
+    }
+    if (type === 'class') {
+        raw = `${raw}\n/** @todo TODO_JS_MIGRATION remove next line after refactoring build */\n${namespace} = ${name};\n`;
     }
     raw = transformFile(raw, { namespace, name });
     return { name, raw, staticCandidantes, requiresSuperClassResolution, superClasses };
