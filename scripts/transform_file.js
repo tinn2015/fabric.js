@@ -163,6 +163,9 @@ function generateClass(rawClass, className, superClass) {
     return `export class ${className}${superClass ? ` extends ${superClass}` : ''} ${rawClass}`;
 }
 
+/**
+ * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes#mix-ins
+ */
 function generateMixin(rawClass, mixinName, baseClassNS) {
     const funcName = `${mixinName}Generator`;
     return `
@@ -350,4 +353,4 @@ function convert(options = {}) {
     failed.map(console.error)
 }
 
-convert({ overwriteExisitingFiles: true });
+convert({ overwriteExisitingFiles: false });
