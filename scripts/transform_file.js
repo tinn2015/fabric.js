@@ -189,9 +189,8 @@ function transformFile(raw, { namespace, name } = {}) {
  * @param {'class'|'mixin'} type 
  * @returns 
  */
-function transformClass(file, type) {
+function transformClass(type, raw, className) {
     if (!type) throw new Error(chalk.red(`INVALID_ARGUMENT type`));
-    let raw = readFile(file);
     let {
         prototype,
         match,
@@ -242,17 +241,30 @@ function transformClass(file, type) {
     } while (transformed !== rawClass);
     rawClass = removeCommas(rawClass);
     const classDirective = type === 'mixin' ?
-        generateMixin(rawClass, getMixinName(file), namespace) :
-        generateClass(rawClass, name, superClass);
+        generateMixin(rawClass, className||name, namespace) :
+        generateClass(rawClass, className || name, superClass);
     raw = `${raw.slice(0, match.index)}${classDirective}${raw.slice(end + 1).replace(/\s*\)\s*;?/, '')}`;
     raw = transformFile(raw, { namespace, name });
+    if (type === 'mixin') {
+        //  in case of multiple mixins in one file
+        try {
+            return transformClass(type, raw, className);
+        } catch (error) {
+            
+        }
+    }
     return { name, raw, staticCandidantes, requiresSuperClassResolution, superClasses };
 }
 
 function convertFile(type, source, dest) {
-    if (path.parse(source).ext !== '.js') return;
     try {
-        const { name, raw, staticCandidantes, requiresSuperClassResolution, superClasses } = transformClass(source, type);
+        const {
+            name,
+            raw,
+            staticCandidantes,
+             requiresSuperClassResolution, 
+            superClasses
+        } = transformClass(type, readFile(source), type === 'mixin' && getMixinName(path.parse(source).name));
         dest = (typeof dest === 'function' ? dest(name) : dest) || source;
         fs.writeFileSync(dest, raw);
         console.log({
@@ -268,6 +280,10 @@ function convertFile(type, source, dest) {
     }
 }
 
+function logError(source, e) {
+    console.error(chalk.bold(chalk.yellow(`failed to convert ${path.relative(wd, source)}`)), e);
+}
+
 const shapesDir = path.resolve(wd, './src/shapes');
 const mixinsDir = path.resolve(wd, './src/mixins');
 const srcDir = path.resolve(wd, './src');
@@ -275,7 +291,7 @@ fs.readdirSync(shapesDir).forEach(file => {
     convertFile('class', path.resolve(shapesDir, file), name => path.resolve(shapesDir, `${name}.ts`));
 });
 fs.readdirSync(mixinsDir).forEach(file => {
-    convertFile('mixin', path.resolve(mixinsDir, file), name => path.resolve(mixinsDir, `${getMixinName(file)}.ts`));
+    convertFile('mixin', path.resolve(mixinsDir, file), path.resolve(mixinsDir, `${getMixinName(file)}.ts`));
 });
 const additionalFile = fs.readdirSync(srcDir).filter(file => !fs.lstatSync(path.resolve(srcDir, file)).isDirectory());
 additionalFile.forEach(file => {
