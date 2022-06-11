@@ -134,8 +134,7 @@ function findClassBase(raw, regex) {
             value: match
         },
         ...rawObject,
-        klass,
-        prototype: klass.prototype
+        klass
     };
 }
 
