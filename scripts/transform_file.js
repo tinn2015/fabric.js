@@ -12,16 +12,16 @@ function readFile(file) {
     return fs.readFileSync(path.resolve(wd, file)).toString('utf-8');;
 }
 
-function getVariableNameOfKey(raw, key) {
-    const regex = new RegExp(`(.+)=\\s*${key.replaceAll('.', '\\.')}`, 'm');
-    const result = regex.exec(raw);
-    return result && result[1].trim();
-}
-
 function getVariableNameOfNS(raw, namespace) {
-    const regex = new RegExp(`(.+)=\\s*${namespace.replaceAll('.', '\\.')}\\.+$`, 'm');
+    const regex = new RegExp(`\\s*(.+)=\\s*${namespace.replaceAll('.', '\\.')}`, 'gm');
     const result = regex.exec(raw);
     return result ? result[1].trim() : namespace;
+}
+
+function getNSFromVariableName(raw, varname) {
+    const regex = new RegExp(`\\s*${varname}\\s*=\\s*(.*)\\s*?,\\s*`, 'gm');
+    const result = regex.exec(raw);
+    return result ? result[1].trim() : null;
 }
 
 function findObject(raw, charStart, charEnd, startFrom = 0) {
@@ -110,9 +110,15 @@ function findClassBase(raw, regex) {
     const result = regex.exec(raw);
     if (!result) throw new Error('FAILED TO PARSE');
     const [match, classNSRaw, superClassRaw] = result;
-    const namespace = classNSRaw.trim();
+    const [first, ...rest] = classNSRaw.trim().split('.');
+    const namespace = [getNSFromVariableName(raw, first), ...rest].join('.');
     const name = namespace.slice(namespace.lastIndexOf('.') + 1);
-    const superClasses = superClassRaw?.trim().split(',').filter(raw => !raw.match(/\/\*+/) && raw).map(key => key.trim()) || [];
+    const superClasses = superClassRaw?.trim().split(',')
+        .filter(raw => !raw.match(/\/\*+/) && raw).map(key => key.trim())
+        .map(val => {
+            const [first, ...rest] = val.split('.');
+            return [getNSFromVariableName(raw, first), ...rest].join('.');
+        }) || [];
     const rawObject = findObject(raw, '{', '}', result.index);
     const NS = namespace.slice(0, namespace.lastIndexOf('.'));
     const klass = fabric.util.resolveNamespace(NS === 'fabric' ? null : NS)[name];
@@ -302,7 +308,8 @@ function convertFile(type, source, dest) {
         console.log({
             state: 'failure',
             type,
-            source: path.relative(wd, source)
+            source: path.relative(wd, source),
+            error
         });
         error.file = file;
         return error;
@@ -330,13 +337,14 @@ function convert(options = {}) {
         failed.push(...errors);
         createIndex && generateIndexFile(dir, files, ext);
     }
+    
     classDirs.forEach(klsDir => {
         const dir = path.resolve(srcDir, klsDir);
         const result = fs.readdirSync(dir).map(file => {
             return convertFile('class', path.resolve(dir, file), overwriteExisitingFiles ? false : name => path.resolve(dir, `${name}.${ext}`));
         });
         finalize(dir, result);
-    })
+    });
 
     const mixinFiles = fs.readdirSync(mixinsDir).map(file => {
         return convertFile('mixin', path.resolve(mixinsDir, file), overwriteExisitingFiles ? false : path.resolve(mixinsDir, `${getMixinName(file)}.${ext}`));
