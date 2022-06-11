@@ -56,15 +56,15 @@ function removeCommas(raw) {
         { opening: '{', closing: '}', test(key, index, input) { return input[index] === this[key] } },
         { opening: '[', closing: ']', test(key, index, input) { return input[index] === this[key] } },
         { opening: '(', closing: ')', test(key, index, input) { return input[index] === this[key] } },
-        { opening: '/*', closing: '*/', test(key, index, input) { return input[index] === this[key][0] && input[index + 1] === this[key][1] } },
+       // { opening: '/*', closing: '*/', test(key, index, input) { return input[index] === this[key][0] && input[index + 1] === this[key][1] } },
     ];
     const stack = [];
     const commas = [];
     while (index < raw.length) {
-        if (pairs.some(t => t.test('opening',raw[index]))) {
+        if (pairs.some(t => t.test('opening', index, raw))) {
             stack.push(raw[index]);
         }
-        else if (pairs.some(t => t.test('closing', raw[index]))) {
+        else if (pairs.some(t => t.test('closing', index, raw))) {
             stack.pop();
         }
         else if (raw[index] === ',' && stack.length === 1) {
