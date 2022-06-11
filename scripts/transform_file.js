@@ -257,6 +257,8 @@ function transformClass(type, raw, className) {
     return { name, raw, staticCandidantes, requiresSuperClassResolution, superClasses };
 }
 
+const failed = [];
+
 function convertFile(type, source, dest) {
     try {
         const {
@@ -277,7 +279,9 @@ function convertFile(type, source, dest) {
             staticCandidantes: staticCandidantes.length > 0? staticCandidantes: 'none'
         });
     } catch (e) {
-        console.error(chalk.bold(chalk.yellow(`failed to convert ${path.relative(wd, source)}`)), e);
+        const file = path.relative(wd, source);
+        console.error(chalk.bold(chalk.yellow(`failed to convert ${file}`)), e);
+        failed.push({ e, file });
     }
 }
 
@@ -300,3 +304,5 @@ const additionalFile = fs.readdirSync(srcDir).filter(file => !fs.lstatSync(path.
 additionalFile.forEach(file => {
     convertFile('class', path.resolve(srcDir, file), overwriteExisitingFiles ? false : name => path.resolve(srcDir, `${name}.${fileExt}`));
 });
+console.error(`failed files:`);
+console.error(failed.map(({ file }) => file));
