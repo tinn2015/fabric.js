@@ -366,10 +366,10 @@ website
 program
     .command('transform')
     .description('transforms files into es6')
-    .option('-o, --overwrite')
-    .option('-x, --exports')
-    .option('-i, --index')
-    .option('--ts')
+    .option('-o, --overwrite', 'overwrite exisitng files')
+    .option('-x, --exports', 'use exports')
+    .option('-i, --index', 'create index files')
+    .option('--ts', 'transform into typescript')
     .action(({ overwrite, exports, index, ts } = {}) => {
         require('./transform_file').convert({
             overwriteExisitingFiles: overwrite,
