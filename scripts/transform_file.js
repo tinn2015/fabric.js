@@ -241,7 +241,7 @@ function transformClass(type, raw, className) {
     } while (transformed !== rawClass);
     rawClass = removeCommas(rawClass);
     const classDirective = type === 'mixin' ?
-        generateMixin(rawClass, `${_.upperFirst(name)}${className.replace(new RegExp(name, 'i'), '')}` || name, namespace) :
+        generateMixin(rawClass, `${_.upperFirst(name)}${className.replace(new RegExp(name.toLowerCase()==='staticcanvas'?'canvas':name, 'i'), '')}` || name, namespace) :
         generateClass(rawClass, className || name, superClass);
     raw = `${raw.slice(0, match.index)}${classDirective}${raw.slice(end + 1).replace(/\s*\)\s*;?/, '')}`;
     if (type === 'mixin') {
