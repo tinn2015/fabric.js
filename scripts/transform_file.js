@@ -241,7 +241,7 @@ function transformClass(type, raw, className) {
     } while (transformed !== rawClass);
     rawClass = removeCommas(rawClass);
     const classDirective = type === 'mixin' ?
-        generateMixin(rawClass, className||name, namespace) :
+        generateMixin(rawClass, className.indexOf(name)===-1?`${_.upperFirst(name)}${className}`:className || name, namespace) :
         generateClass(rawClass, className || name, superClass);
     raw = `${raw.slice(0, match.index)}${classDirective}${raw.slice(end + 1).replace(/\s*\)\s*;?/, '')}`;
     raw = transformFile(raw, { namespace, name });
