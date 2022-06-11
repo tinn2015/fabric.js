@@ -56,26 +56,34 @@ function removeCommas(raw) {
         { opening: '{', closing: '}', test(key, index, input) { return input[index] === this[key] } },
         { opening: '[', closing: ']', test(key, index, input) { return input[index] === this[key] } },
         { opening: '(', closing: ')', test(key, index, input) { return input[index] === this[key] } },
-        { opening: '/*', closing: '*/', test(key, index, input) { return input[index] === this[key][0] && input[index + 1] === this[key][1] } },
+        { blocking:true, opening: '/*', closing: '*/', test(key, index, input) { return input[index] === this[key][0] && input[index + 1] === this[key][1] } },
     ];
     const stack = [];
     const commas = [];
     const fields = [];
     while (index < raw.length) {
-        if (pairs.some(t => t.test('opening', index, raw))) {
-            stack.push(raw[index]);
-        }
-        else if (pairs.some(t => t.test('closing', index, raw))) {
+        const blocking = pairs.find(t => t.blocking && t.test('closing', index, raw));
+        if (blocking && stack[stack.length - 1] === blocking) {
             stack.pop();
         }
-        else if (raw[index] === ',' && stack.length === 1) {
-            commas.push(index);
+        else if (stack.length === 0 || !stack[stack.length - 1].blocking) {
+            const found = pairs.find(t => t.test('opening', index, raw));
+            if (found) {
+                stack.push(found);
+            }
+            else if (pairs.some(t => t.test('closing', index, raw))) {
+                stack.pop();
+            }
+            else if (raw[index] === ',' && stack.length === 1) {
+                commas.push(index);
+            }
+            else if (raw[index] === ':' && stack.length === 1) {
+                const trim = raw.slice(0, index).trim();
+                const result = /\s*(.+)$/.exec(trim);
+                result && fields.push(result[1])
+            }
         }
-        else if (raw[index] === ':' && stack.length === 1) {
-            const trim = raw.slice(0, index).trim();
-            const result = /\s*(.+)$/.exec(trim);
-            result && fields.push(result[1])
-        }
+       
         index++;
     }
     commas.reverse().forEach(pos => {
