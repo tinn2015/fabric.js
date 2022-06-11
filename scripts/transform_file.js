@@ -350,4 +350,4 @@ function convert(options = {}) {
     failed.map(console.error)
 }
 
-convert({ overwriteExisitingFiles :false});
+convert({ overwriteExisitingFiles: true });
