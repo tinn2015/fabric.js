@@ -366,4 +366,4 @@ function convert(options = {}) {
     failed.map(console.error)
 }
 
-convert({ overwriteExisitingFiles: true });
+module.exports = { convert };

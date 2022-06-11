@@ -363,4 +363,20 @@ website
     .option('-w, --watch')
     .action(exportToWebsite);
 
+program
+    .command('transform')
+    .description('transforms files into es6')
+    .option('-o, --overwrite')
+    .option('-x, --exports')
+    .option('-i, --index')
+    .option('--ts')
+    .action(({ overwrite, exports, index, ts } = {}) => {
+        require('./transform_file').convert({
+            overwriteExisitingFiles: overwrite,
+            useExports: exports,
+            createIndex: index,
+            ext: ts ? 'ts' : 'js',
+        });
+    });
+
 program.parse(process.argv);
