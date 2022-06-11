@@ -53,17 +53,18 @@ function findObject(raw, charStart, charEnd, startFrom = 0) {
 function removeCommas(raw) {
     let index = 0;
     const pairs = [
-        { opening: '{', closing: '}' },
-        { opening: '[', closing: ']' },
-        { opening: '(', closing: ')' },
+        { opening: '{', closing: '}', test(key, index, input) { return input[index] === this[key] } },
+        { opening: '[', closing: ']', test(key, index, input) { return input[index] === this[key] } },
+        { opening: '(', closing: ')', test(key, index, input) { return input[index] === this[key] } },
+        { opening: '/*', closing: '*/', test(key, index, input) { return input[index] === this[key][0] && input[index + 1] === this[key][1] } },
     ];
     const stack = [];
     const commas = [];
     while (index < raw.length) {
-        if (pairs.some(({ opening }) => raw[index] === opening)) {
+        if (pairs.some(t => t.test('opening',raw[index]))) {
             stack.push(raw[index]);
         }
-        else if (pairs.some(({ closing }) => raw[index] === closing)) {
+        else if (pairs.some(t => t.test('closing', raw[index]))) {
             stack.pop();
         }
         else if (raw[index] === ',' && stack.length === 1) {
