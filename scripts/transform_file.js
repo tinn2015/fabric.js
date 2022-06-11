@@ -122,19 +122,24 @@ function transformClass(file) {
     Object.keys(prototype).forEach((key) => {
         const object = prototype[key];
         if (typeof object === 'function') {
-            const searchPhrase = `${key}\\s*:\\s*function\\s*\\(`;
-            const regex = new RegExp(searchPhrase);
-            const start = regex.exec(rawClass)?.index;
+            const searchPhrase = `^(\\s*)${key}\\s*:\\s*function\\s*\\(`;
+            const regex = new RegExp(searchPhrase, 'm');
+            const result = regex.exec(rawClass);
+            if (!result) return;
+            const whitespace = result[1];
+            const start = result.index + whitespace.length;
             const func = findObject(rawClass, '{', '}', start);
             start && func.raw.indexOf('this') === -1 && staticCandidantes.push(key);
             const indexOfComma = rawClass.indexOf(',', func.end);
             if (indexOfComma > -1) {
                 rawClass = rawClass.slice(0, indexOfComma) + rawClass.slice(indexOfComma + 1);
             }
-            rawClass = rawClass.replace(regex, `${key}(`);
+            rawClass = rawClass.replace(regex, `${whitespace}${key}(`);
+            
             if (regex.exec(rawClass)) {
                 throw new Error(`dupliate method found ${name}#${key}`)
             }
+            
         }
         else {
            // if (key !=='selectionColor')return
