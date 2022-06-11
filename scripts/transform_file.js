@@ -114,7 +114,6 @@ function transformSuperCall(raw) {
     const regex = /this.callSuper\((.+)\)/g;
     const result = regex.exec(raw);
     if (!result) return raw;
-    console.log(result.length)
     const [rawMethodName, ...args] = result[1].split(',');
     const methodName = rawMethodName.replace(/'|"/g, '');
     const firstArgIndex = result[1].indexOf(args[0]);
@@ -147,7 +146,7 @@ function transformClass(file) {
             if (indexOfComma > -1) {
                 rawClass = rawClass.slice(0, indexOfComma) + rawClass.slice(indexOfComma + 1);
             }
-            rawClass = rawClass.replace(regex, `${whitespace}${key}(`);
+            rawClass = rawClass.replace(regex, `${whitespace}${key==='initialize'?'constructor':key}(`);
             if (regex.exec(rawClass)) {
                 throw new Error(`dupliate method found ${name}#${key}`)
             }
@@ -158,13 +157,18 @@ function transformClass(file) {
             const start = getPropStart(key);
             switch (typeof prototype[key]) {
                 case 'function':
-                    throw new Error(`WTF? ${key}\n${prototype[key].toString()}`);
+                    throw new Error(`DEBUG: ${key}\n${prototype[key].toString()}`);
                 case 'object':
                     const a = findObject('[', ']', start.start);
                     const b = findObject('(', ')', start.start);
                     const c = findObject('{', '}', start.start);
                     if (a || b || c) {
-                        console.log({a,b,c})
+                        const end = Math.max(a?.end || 0, b?.end || 0, c?.end || 0);
+                        const indexOfLineBreak = rawClass.indexOf('\n', end);
+                        const indexOfComma = rawClass.lastIndexOf(',', indexOfLineBreak);
+                        if (indexOfComma > -1) {
+                            rawClass = rawClass.slice(0, indexOfComma) /*+'\n\n\n\nDEBUG\n\n\n\n'*/ + rawClass.slice(indexOfComma + 1);
+                        }
                         break;
                     }
                 default:
