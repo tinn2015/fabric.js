@@ -205,12 +205,10 @@ function transformClass(type, raw, className) {
     }
     const staticCandidantes = [];
     fields.forEach((key) => {
-        const object = prototype[key];
-        if (typeof object === 'function') {
-            const searchPhrase = `^(\\s*)${key}\\s*:\\s*function\\s*\\(`;
-            const regex = new RegExp(searchPhrase, 'm');
-            const result = regex.exec(rawClass);
-            if (!result) return;
+        const searchPhrase = `^(\\s*)${key}\\s*:\\s*function\\s*\\(`;
+        const regex = new RegExp(searchPhrase, 'm');
+        const result = regex.exec(rawClass);
+        if (result) {
             const whitespace = result[1];
             const start = result.index + whitespace.length;
             const func = findObject(rawClass, '{', '}', start);
@@ -218,8 +216,7 @@ function transformClass(type, raw, className) {
             rawClass = rawClass.replace(regex, `${whitespace}${key === 'initialize' ? 'constructor' : key}(`);
             if (regex.exec(rawClass)) {
                 throw new Error(chalk.red(`dupliate method found ${name}#${key}`));
-            }
-            
+            }            
         }
         else {
             const start = getPropStart(key);
@@ -287,6 +284,7 @@ const mixinsDir = path.resolve(wd, './src/mixins');
 const srcDir = path.resolve(wd, './src');
 const fileExt = 'js';
 const overwriteExisitingFiles = true;
+
 classDirs.forEach(klsDir => {
     const dir = path.resolve(srcDir, klsDir);
     fs.readdirSync(dir).forEach(file => {
@@ -301,5 +299,6 @@ const additionalFile = fs.readdirSync(srcDir).filter(file => !fs.lstatSync(path.
 additionalFile.forEach(file => {
     convertFile('class', path.resolve(srcDir, file), overwriteExisitingFiles ? false : name => path.resolve(srcDir, `${name}.${fileExt}`));
 });
+
 console.error(`failed files:`);
 console.error(failed.map(({ file }) => file));
