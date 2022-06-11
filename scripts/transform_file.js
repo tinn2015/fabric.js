@@ -21,7 +21,6 @@ function getVariableNameOfNS(raw, namespace) {
 function getNSFromVariableName(raw, varname) {
     if (varname === 'fabric') return 'fabric';
     const regex = new RegExp(`\\s*${varname}\\s*=\\s*(.*)\\s*?,\\s*`, 'gm');
-    console.log(regex.source, varname)
     const result = regex.exec(raw);
     return result ? result[1].trim() : null;
 }
