@@ -110,6 +110,19 @@ function findClass(raw) {
     };
 }
 
+function transformSuperCall(raw) {
+    const regex = /this.callSuper\((.+)\)/g;
+    const result = regex.exec(raw);
+    if (!result) return raw;
+    console.log(result.length)
+    const [rawMethodName, ...args] = result[1].split(',');
+    const methodName = rawMethodName.replace(/'|"/g, '');
+    const firstArgIndex = result[1].indexOf(args[0]);
+    const rest = firstArgIndex > -1 ? result[1].slice(firstArgIndex, result[1].length).trim() : '';
+    const transformedCall = `super${methodName === 'initialize' ? '' : `.${methodName}`}(${rest})`;
+    return raw.slice(0, result.index) + transformedCall + raw.slice(result.index + result[0].length);
+}
+
 function transformClass(file) {
     let raw = readFile(file);
     let { prototype, match, name, namespace, superClass, raw: rawClass, end } = findClass(raw);
@@ -135,7 +148,6 @@ function transformClass(file) {
                 rawClass = rawClass.slice(0, indexOfComma) + rawClass.slice(indexOfComma + 1);
             }
             rawClass = rawClass.replace(regex, `${whitespace}${key}(`);
-            
             if (regex.exec(rawClass)) {
                 throw new Error(`dupliate method found ${name}#${key}`)
             }
@@ -163,7 +175,12 @@ function transformClass(file) {
                     }
                     break;
             }
-
+            let transformed = rawClass;
+            do {
+                rawClass = transformed;
+                transformed = transformSuperCall(rawClass);
+            } while (transformed !== rawClass);
+            
             rawClass = rawClass.replace(start.regex, `${key} = `);
         }
     });
