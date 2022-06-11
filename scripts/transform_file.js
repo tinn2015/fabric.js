@@ -56,7 +56,7 @@ function removeCommas(raw) {
         { opening: '{', closing: '}', test(key, index, input) { return input[index] === this[key] } },
         { opening: '[', closing: ']', test(key, index, input) { return input[index] === this[key] } },
         { opening: '(', closing: ')', test(key, index, input) { return input[index] === this[key] } },
-       // { opening: '/*', closing: '*/', test(key, index, input) { return input[index] === this[key][0] && input[index + 1] === this[key][1] } },
+        { opening: '/*', closing: '*/', test(key, index, input) { return input[index] === this[key][0] && input[index + 1] === this[key][1] } },
     ];
     const stack = [];
     const commas = [];
@@ -285,7 +285,7 @@ const classDirs = ['shapes', 'brushes', 'filters'];
 const mixinsDir = path.resolve(wd, './src/mixins');
 const srcDir = path.resolve(wd, './src');
 const fileExt = 'js';
-const overwriteExisitingFiles = true;
+const overwriteExisitingFiles = false;
 classDirs.forEach(klsDir => {
     const dir = path.resolve(srcDir, klsDir);
     fs.readdirSync(dir).forEach(file => {
