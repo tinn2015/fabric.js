@@ -195,6 +195,7 @@ function transformClass(file) {
         const wrapper = findObject(raw, '{', '}');
         raw = wrapper.raw.slice(1, wrapper.raw.length - 1);
     }
+    raw = `//@ts-nocheck\n${raw}`;
     raw = `${raw}\n/** @todo TODO_JS_MIGRATION remove next line after refactoring build */\n${namespace} = ${name};\n`;
     return { name, raw, staticCandidantes };
 }
