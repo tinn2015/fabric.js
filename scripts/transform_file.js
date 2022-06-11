@@ -50,23 +50,32 @@ function findObject(raw, charStart, charEnd, startFrom = 0) {
 }
 
 
-function removeCommas(raw) {
+function parseRawClass(raw) {
     let index = 0;
     const pairs = [
         { opening: '{', closing: '}', test(key, index, input) { return input[index] === this[key] } },
         { opening: '[', closing: ']', test(key, index, input) { return input[index] === this[key] } },
         { opening: '(', closing: ')', test(key, index, input) { return input[index] === this[key] } },
-        { blocking:true, opening: '/*', closing: '*/', test(key, index, input) { return input[index] === this[key][0] && input[index + 1] === this[key][1] } },
+        {
+            blocking: true, opening: '/*',
+            closing: '*/',
+            test(key, index, input) {
+                return key === 'closing' ?
+                    input[index - 1] === this[key][0] && input[index] === this[key][1] :
+                    input[index] === this[key][0] && input[index + 1] === this[key][1];
+            }
+        },
     ];
     const stack = [];
     const commas = [];
     const fields = [];
     while (index < raw.length) {
-        const blocking = pairs.find(t => t.blocking && t.test('closing', index, raw));
-        if (blocking && stack[stack.length - 1] === blocking) {
+        const top = stack[stack.length - 1];
+        //console.log(raw[index],top)
+        if (top && top.test('closing', index, raw)) {
             stack.pop();
         }
-        else if (stack.length === 0 || !stack[stack.length - 1].blocking) {
+        else if (!top || !top.blocking) {
             const found = pairs.find(t => t.test('opening', index, raw));
             if (found) {
                 stack.push(found);
@@ -195,7 +204,6 @@ function transformFile(raw, { namespace, name } = {}) {
 function transformClass(type, raw, className) {
     if (!type) throw new Error(chalk.red(`INVALID_ARGUMENT type`));
     const {
-        prototype,
         match,
         name,
         namespace,
@@ -205,11 +213,17 @@ function transformClass(type, raw, className) {
         requiresSuperClassResolution,
         superClasses
     } = type === 'mixin' ? findMixin(raw) : findClass(raw);
-    let { raw: rawClass, fields } = removeCommas(_rawClass);
-    const getPropStart = (key) => {
-        const searchPhrase = `${key}\\s*:\\s*`;
-        const regex = new RegExp(searchPhrase);
-        return { start: regex.exec(rawClass)?.index || -1, regex };
+    let { raw: rawClass, fields } = parseRawClass(_rawClass);
+    const getPropStart = (key, raw) => {
+        const searchPhrase = `^(\\s*)${key}\\s*:\\s*`;
+        const regex = new RegExp(searchPhrase, 'm');
+        const result = regex.exec(raw);
+        const whitespace = result[1];
+        return {
+            start: result?.index + whitespace.length || -1,
+            regex,
+            value: `${whitespace}${key} = `
+        };
     }
     const staticCandidantes = [];
     fields.forEach((key) => {
@@ -227,8 +241,8 @@ function transformClass(type, raw, className) {
             }            
         }
         else {
-            const start = getPropStart(key);
-            rawClass = rawClass.replace(start.regex, `${key} = `);
+            const start = getPropStart(key, rawClass);
+            rawClass = rawClass.replace(start.regex, start.value);
         }
     });
     let transformed = rawClass;
@@ -291,8 +305,12 @@ const classDirs = ['shapes', 'brushes', 'filters'];
 const mixinsDir = path.resolve(wd, './src/mixins');
 const srcDir = path.resolve(wd, './src');
 const fileExt = 'js';
-const overwriteExisitingFiles = true;
+const overwriteExisitingFiles = false;
 
+const dir = path.resolve(srcDir, 'shapes');
+const file='text.class.js'
+convertFile('class', path.resolve(dir, file), overwriteExisitingFiles ? false : name => path.resolve(dir, `${name}.${fileExt}`));
+/*
 classDirs.forEach(klsDir => {
     const dir = path.resolve(srcDir, klsDir);
     fs.readdirSync(dir).forEach(file => {
@@ -307,6 +325,6 @@ const additionalFile = fs.readdirSync(srcDir).filter(file => !fs.lstatSync(path.
 additionalFile.forEach(file => {
     convertFile('class', path.resolve(srcDir, file), overwriteExisitingFiles ? false : name => path.resolve(srcDir, `${name}.${fileExt}`));
 });
-
+*/
 console.error(`failed files:`);
 console.error(failed.map(({ file }) => file));
