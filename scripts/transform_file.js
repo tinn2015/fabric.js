@@ -273,8 +273,6 @@ function transformClass(type, raw, className) {
     return { name, raw, staticCandidantes, requiresSuperClassResolution, superClasses };
 }
 
-const failed = [];
-
 function convertFile(type, source, dest) {
     try {
         const {
@@ -303,20 +301,17 @@ function convertFile(type, source, dest) {
             type,
             source: path.relative(wd, source)
         });
-        // console.error(chalk.bold(chalk.yellow(`failed to convert ${file}`)), e);
-        failed.push({ error, file });
+        error.file = file;
+        return error;
     }
 }
 
 const classDirs = ['shapes', 'brushes', 'filters'];
 const mixinsDir = path.resolve(wd, './src/mixins');
 const srcDir = path.resolve(wd, './src');
-const fileExt = 'js';
-const overwriteExisitingFiles = true;
 
-
-function generateIndexFile(dir, files) {
-    const file = path.resolve(dir, `index.${fileExt}`);
+function generateIndexFile(dir, files, ext) {
+    const file = path.resolve(dir, `index.${ext}`);
     fs.writeFileSync(file, _.compact(files).map(file => {
         const name = path.parse(file).name;
         return `export * from ./${name};\n`;
@@ -324,24 +319,35 @@ function generateIndexFile(dir, files) {
     console.log(chalk.bold(`created ${path.relative(wd, file)}`));
 }
 
-classDirs.forEach(klsDir => {
-    const dir = path.resolve(srcDir, klsDir);
-    const files = fs.readdirSync(dir).map(file => {
-        return convertFile('class', path.resolve(dir, file), overwriteExisitingFiles ? false : name => path.resolve(dir, `${name}.${fileExt}`));
+function convert(options = {}) {
+    const failed = [];
+    const { overwriteExisitingFiles, ext, createIndex } = _.defaults(options, { overwriteExisitingFiles: true, ext: 'js', createIndex: true });
+    const finalize = (dir, result) => {
+        const [errors, files] = _.partition(result, file => file instanceof Error);
+        failed.push(...errors);
+        createIndex && generateIndexFile(dir, files, ext);
+    }
+    classDirs.forEach(klsDir => {
+        const dir = path.resolve(srcDir, klsDir);
+        const result = fs.readdirSync(dir).map(file => {
+            return convertFile('class', path.resolve(dir, file), overwriteExisitingFiles ? false : name => path.resolve(dir, `${name}.${ext}`));
+        });
+        finalize(dir, result);
+    })
+
+    const mixinFiles = fs.readdirSync(mixinsDir).map(file => {
+        return convertFile('mixin', path.resolve(mixinsDir, file), overwriteExisitingFiles ? false : path.resolve(mixinsDir, `${getMixinName(file)}.${ext}`));
     });
-    generateIndexFile(dir, files);
-})
+    finalize(mixinsDir, mixinFiles);
 
-const mixinFiles = fs.readdirSync(mixinsDir).map(file => {
-    return convertFile('mixin', path.resolve(mixinsDir, file), overwriteExisitingFiles ? false : path.resolve(mixinsDir, `${getMixinName(file)}.${fileExt}`));
-});
-generateIndexFile(mixinsDir, mixinFiles);
+    const additionalFile = fs.readdirSync(srcDir).filter(file => !fs.lstatSync(path.resolve(srcDir, file)).isDirectory());
+    const additionalFiles = additionalFile.map(file => {
+        return convertFile('class', path.resolve(srcDir, file), overwriteExisitingFiles ? false : name => path.resolve(srcDir, `${name}.${ext}`));
+    });
+    finalize(mixinsDir, additionalFiles);
 
-const additionalFile = fs.readdirSync(srcDir).filter(file => !fs.lstatSync(path.resolve(srcDir, file)).isDirectory());
-const additionalFiles = additionalFile.map(file => {
-    return convertFile('class', path.resolve(srcDir, file), overwriteExisitingFiles ? false : name => path.resolve(srcDir, `${name}.${fileExt}`));
-});
-generateIndexFile(mixinsDir, additionalFiles);
+    console.error(`failed files:`);
+    failed.map(console.error)
+}
 
-console.error(`failed files:`);
-console.error(failed.map(({ file, error }) => `${error} ${path.relative(wd, file)}`));
+convert({ overwriteExisitingFiles :false});
