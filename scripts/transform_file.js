@@ -133,20 +133,25 @@ function transformClass(file) {
             rawClass = rawClass.replace(regex, `${key}(`);
         }
         else {
+           // if (key !=='selectionColor')return
             const start = getPropStart(key);
             const type = typeof prototype[key];
             switch (typeof prototype[key]) {
+                case 'function':
+                    throw new Error(`WTF? ${key}\n${prototype[key].toString()}`);
                 case 'object':
                     const a = findObject('[', ']', start.start);
                     const b = findObject('(', ')', start.start);
                     const c = findObject('{', '}', start.start);
-                    if (!a || !b || !c) {
+                    if (a || b || c) {
+                        console.log({a,b,c})
                         break;
                     }
                 default:
-                    const indexOfComma = rawClass.indexOf(',', start.start);
+                    const indexOfLineBreak = rawClass.indexOf('\n', start.start);
+                    const indexOfComma = rawClass.lastIndexOf(',', indexOfLineBreak);
                     if (indexOfComma > -1) {
-                        rawClass = rawClass.slice(0, indexOfComma) + rawClass.slice(indexOfComma + 1);
+                        rawClass = rawClass.slice(0, indexOfComma) /*+'\n\n\n\nDEBUG\n\n\n\n'*/+ rawClass.slice(indexOfComma + 1);
                     }
                     break;
             }
