@@ -244,7 +244,6 @@ function transformClass(type, raw, className) {
         generateMixin(rawClass, className.indexOf(name)===-1?`${_.upperFirst(name)}${className}`:className || name, namespace) :
         generateClass(rawClass, className || name, superClass);
     raw = `${raw.slice(0, match.index)}${classDirective}${raw.slice(end + 1).replace(/\s*\)\s*;?/, '')}`;
-    raw = transformFile(raw, { namespace, name });
     if (type === 'mixin') {
         //  in case of multiple mixins in one file
         try {
@@ -253,6 +252,7 @@ function transformClass(type, raw, className) {
             
         }
     }
+    raw = transformFile(raw, { namespace, name });
     return { name, raw, staticCandidantes, requiresSuperClassResolution, superClasses };
 }
 
@@ -284,7 +284,7 @@ const classDirs = ['shapes', 'brushes', 'filters'];
 const mixinsDir = path.resolve(wd, './src/mixins');
 const srcDir = path.resolve(wd, './src');
 const fileExt = 'js';
-const overwriteExisitingFiles = false;
+const overwriteExisitingFiles = true;
 classDirs.forEach(klsDir => {
     const dir = path.resolve(srcDir, klsDir);
     fs.readdirSync(dir).forEach(file => {
