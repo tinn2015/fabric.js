@@ -13,13 +13,16 @@ function readFile(file) {
 }
 
 function getVariableNameOfNS(raw, namespace) {
-    const regex = new RegExp(`\\s*(.+)=\\s*${namespace.replaceAll('.', '\\.')}`, 'gm');
+    const regex = new RegExp(`\\s*(.+)=\\s*${namespace.replaceAll('.', '\\.')}[^(]+`, 'm');
     const result = regex.exec(raw);
+    console.log(regex.source, namespace,result && result[1].trim())
     return result ? result[1].trim() : namespace;
 }
 
 function getNSFromVariableName(raw, varname) {
+    if (varname === 'fabric') return 'fabric';
     const regex = new RegExp(`\\s*${varname}\\s*=\\s*(.*)\\s*?,\\s*`, 'gm');
+    console.log(regex.source, varname)
     const result = regex.exec(raw);
     return result ? result[1].trim() : null;
 }
@@ -356,7 +359,7 @@ function convert(options = {}) {
         return convertFile('class', path.resolve(srcDir, file), overwriteExisitingFiles ? false : name => path.resolve(srcDir, `${name}.${ext}`));
     });
     finalize(mixinsDir, additionalFiles);
-
+    return;
     console.error(`failed files:`);
     failed.map(console.error)
 }
