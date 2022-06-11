@@ -350,7 +350,7 @@ function convert(options = {}) {
             const dest = overwriteExisitingFiles ?
                 ext === 'ts' ? path.resolve(dir, file.replace('.js', '.ts')) : false :
                 name => path.resolve(dir, `${name}.${ext}`);
-            return convertFile('class', path.resolve(dir, file), dest);
+            return convertFile('class', path.resolve(dir, file), dest, options);
         });
         finalize(dir, result);
     });
@@ -359,7 +359,7 @@ function convert(options = {}) {
         const dest = overwriteExisitingFiles ?
             ext === 'ts' ? path.resolve(mixinsDir, file.replace('.js', '.ts')) : false :
             path.resolve(mixinsDir, `${getMixinName(file)}.${ext}`);
-        return convertFile('mixin', path.resolve(mixinsDir, file), dest);
+        return convertFile('mixin', path.resolve(mixinsDir, file), dest, options);
     });
     finalize(mixinsDir, mixinFiles);
 
@@ -368,7 +368,7 @@ function convert(options = {}) {
         const dest = overwriteExisitingFiles ?
             ext === 'ts' ? path.resolve(srcDir, file.replace('.js', '.ts')) : false :
             name => path.resolve(srcDir, `${name}.${ext}`);
-        return convertFile('class', path.resolve(srcDir, file), dest);
+        return convertFile('class', path.resolve(srcDir, file), dest, options);
     });
     finalize(mixinsDir, additionalFiles);
     //return;
