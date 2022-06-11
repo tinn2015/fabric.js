@@ -108,7 +108,7 @@ function parseRawClass(raw) {
  */
 function findClassBase(raw, regex) {
     const result = regex.exec(raw);
-    if (!result) throw new Error(chalk.red('FAILED TO PARSE'));
+    if (!result) throw new Error('FAILED TO PARSE');
     const [match, classNSRaw, superClassRaw] = result;
     const namespace = classNSRaw.trim();
     const name = namespace.slice(namespace.lastIndexOf('.') + 1);
@@ -148,7 +148,7 @@ function transformSuperCall(raw) {
     const regex = /this.callSuper\((.+)\)/g;
     const result = regex.exec(raw);
     if (!result) {
-        if (raw.indexOf('callSuper') > -1) throw new Error(chalk.red(`failed to replace 'callSuper'`));
+        if (raw.indexOf('callSuper') > -1) throw new Error(`failed to replace 'callSuper'`);
         return raw;
     }
     const [rawMethodName, ...args] = result[1].split(',');
@@ -202,7 +202,7 @@ function transformFile(raw, { namespace, name } = {}) {
  * @returns 
  */
 function transformClass(type, raw, className) {
-    if (!type) throw new Error(chalk.red(`INVALID_ARGUMENT type`));
+    if (!type) throw new Error(`INVALID_ARGUMENT type`);
     const {
         match,
         name,
@@ -237,7 +237,7 @@ function transformClass(type, raw, className) {
             start && func.raw.indexOf('this') === -1 && staticCandidantes.push(key);
             rawClass = rawClass.replace(regex, `${whitespace}${key === 'initialize' ? 'constructor' : key}(`);
             if (regex.exec(rawClass)) {
-                throw new Error(chalk.red(`dupliate method found ${name}#${key}`));
+                throw new Error(`dupliate method found ${name}#${key}`);
             }            
         }
         else {
@@ -267,7 +267,7 @@ function transformClass(type, raw, className) {
         }
     }
     if (type === 'class') {
-        raw = `${raw}\n/** @todo TODO_JS_MIGRATION remove next line after refactoring build */\n${namespace} = ${name};\n`;
+        //raw = `${raw}\n/** @todo TODO_JS_MIGRATION remove next line after refactoring build */\n${namespace} = ${name};\n`;
     }
     raw = transformFile(raw, { namespace, name });
     return { name, raw, staticCandidantes, requiresSuperClassResolution, superClasses };
@@ -288,16 +288,23 @@ function convertFile(type, source, dest) {
         fs.writeFileSync(dest, raw);
         console.log({
             state: 'success',
+            type,
             source: path.relative(wd, source),
             destination: path.relative(wd, dest),
             class: name,
             requiresSuperClassResolution: requiresSuperClassResolution ? superClasses : false,
             staticCandidantes: staticCandidantes.length > 0? staticCandidantes: 'none'
         });
-    } catch (e) {
+        return dest;
+    } catch (error) {
         const file = path.relative(wd, source);
-        console.error(chalk.bold(chalk.yellow(`failed to convert ${file}`)), e);
-        failed.push({ e, file });
+        console.log({
+            state: 'failure',
+            type,
+            source: path.relative(wd, source)
+        });
+        // console.error(chalk.bold(chalk.yellow(`failed to convert ${file}`)), e);
+        failed.push({ error, file });
     }
 }
 
@@ -307,20 +314,34 @@ const srcDir = path.resolve(wd, './src');
 const fileExt = 'js';
 const overwriteExisitingFiles = true;
 
+
+function generateIndexFile(dir, files) {
+    const file = path.resolve(dir, `index.${fileExt}`);
+    fs.writeFileSync(file, _.compact(files).map(file => {
+        const name = path.parse(file).name;
+        return `export * from ./${name};\n`;
+    }).join(''));
+    console.log(chalk.bold(`created ${path.relative(wd, file)}`));
+}
+
 classDirs.forEach(klsDir => {
     const dir = path.resolve(srcDir, klsDir);
-    fs.readdirSync(dir).forEach(file => {
-        convertFile('class', path.resolve(dir, file), overwriteExisitingFiles ? false : name => path.resolve(dir, `${name}.${fileExt}`));
+    const files = fs.readdirSync(dir).map(file => {
+        return convertFile('class', path.resolve(dir, file), overwriteExisitingFiles ? false : name => path.resolve(dir, `${name}.${fileExt}`));
     });
+    generateIndexFile(dir, files);
 })
 
-fs.readdirSync(mixinsDir).forEach(file => {
-    convertFile('mixin', path.resolve(mixinsDir, file), overwriteExisitingFiles ? false : path.resolve(mixinsDir, `${getMixinName(file)}.${fileExt}`));
+const mixinFiles = fs.readdirSync(mixinsDir).map(file => {
+    return convertFile('mixin', path.resolve(mixinsDir, file), overwriteExisitingFiles ? false : path.resolve(mixinsDir, `${getMixinName(file)}.${fileExt}`));
 });
+generateIndexFile(mixinsDir, mixinFiles);
+
 const additionalFile = fs.readdirSync(srcDir).filter(file => !fs.lstatSync(path.resolve(srcDir, file)).isDirectory());
-additionalFile.forEach(file => {
-    convertFile('class', path.resolve(srcDir, file), overwriteExisitingFiles ? false : name => path.resolve(srcDir, `${name}.${fileExt}`));
+const additionalFiles = additionalFile.map(file => {
+    return convertFile('class', path.resolve(srcDir, file), overwriteExisitingFiles ? false : name => path.resolve(srcDir, `${name}.${fileExt}`));
 });
+generateIndexFile(mixinsDir, additionalFiles);
 
 console.error(`failed files:`);
-console.error(failed.map(({ file }) => file));
+console.error(failed.map(({ file, error }) => `${error} ${path.relative(wd, file)}`));
