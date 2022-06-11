@@ -122,6 +122,23 @@ function transformSuperCall(raw) {
     return raw.slice(0, result.index) + transformedCall + raw.slice(result.index + result[0].length);
 }
 
+function transformFile(raw, { namespace, name } = {}) {
+    if (raw.startsWith('(function')) {
+        const wrapper = findObject(raw, '{', '}');
+        raw = wrapper.raw.slice(1, wrapper.raw.length - 1);
+    }
+
+    const annoyingCheck = new RegExp(`if\\s*\\(\\s*(global.)?${namespace.replace(/\./g, '\\.')}\\s*\\)\\s*{`);
+    const result = annoyingCheck.exec(raw);
+    if (result) {
+        const found = findObject(raw, '{', '}', result.index);
+        raw = raw.slice(0, result.index) + raw.slice(found.end+1);
+    }
+    raw = `//@ts-nocheck\n${raw}`;
+    //raw = `${raw}\n/** @todo TODO_JS_MIGRATION remove next line after refactoring build */\n${namespace} = ${name};\n`;
+    return raw;
+}
+
 function transformClass(file) {
     let raw = readFile(file);
     let { prototype, match, name, namespace, superClass, raw: rawClass, end } = findClass(raw);
@@ -190,14 +207,9 @@ function transformClass(file) {
     });
 
     const classDirective = `export class ${name}${superClass ? ` extends ${superClass}` : ''} ${rawClass}`;
-    raw = `${raw.slice(0, match.index)}${classDirective}${raw.slice(end+1).replace(/\s*\)\s*;?/,'')}`;
-    if (raw.startsWith('(function')) {
-        const wrapper = findObject(raw, '{', '}');
-        raw = wrapper.raw.slice(1, wrapper.raw.length - 1);
-    }
-    raw = `//@ts-nocheck\n${raw}`;
-    //raw = `${raw}\n/** @todo TODO_JS_MIGRATION remove next line after refactoring build */\n${namespace} = ${name};\n`;
-    return { name, raw, staticCandidantes };
+    raw = `${raw.slice(0, match.index)}${classDirective}${raw.slice(end + 1).replace(/\s*\)\s*;?/, '')}`;
+    raw = transformFile(raw, { namespace, name });
+   return { name, raw, staticCandidantes };
 }
 
 //transformFile('src/parser.js')
