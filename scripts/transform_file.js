@@ -341,24 +341,34 @@ function convert(options = {}) {
         const [errors, files] = _.partition(result, file => file instanceof Error);
         failed.push(...errors);
         createIndex && generateIndexFile(dir, files, ext);
+        overwriteExisitingFiles && ext === 'ts' && files.forEach(file => fs.removeSync(path.resolve(dir, file.replace('.ts', '.js'))));
     }
     
     classDirs.forEach(klsDir => {
         const dir = path.resolve(srcDir, klsDir);
         const result = fs.readdirSync(dir).map(file => {
-            return convertFile('class', path.resolve(dir, file), overwriteExisitingFiles ? false : name => path.resolve(dir, `${name}.${ext}`));
+            const dest = overwriteExisitingFiles ?
+                ext === 'ts' ? path.resolve(dir, file.replace('.js', '.ts')) : false :
+                name => path.resolve(dir, `${name}.${ext}`);
+            return convertFile('class', path.resolve(dir, file), dest);
         });
         finalize(dir, result);
     });
 
     const mixinFiles = fs.readdirSync(mixinsDir).map(file => {
-        return convertFile('mixin', path.resolve(mixinsDir, file), overwriteExisitingFiles ? false : path.resolve(mixinsDir, `${getMixinName(file)}.${ext}`));
+        const dest = overwriteExisitingFiles ?
+            ext === 'ts' ? path.resolve(mixinsDir, file.replace('.js', '.ts')) : false :
+            path.resolve(mixinsDir, `${getMixinName(file)}.${ext}`);
+        return convertFile('mixin', path.resolve(mixinsDir, file), dest);
     });
     finalize(mixinsDir, mixinFiles);
 
     const additionalFile = fs.readdirSync(srcDir).filter(file => !fs.lstatSync(path.resolve(srcDir, file)).isDirectory());
     const additionalFiles = additionalFile.map(file => {
-        return convertFile('class', path.resolve(srcDir, file), overwriteExisitingFiles ? false : name => path.resolve(srcDir, `${name}.${ext}`));
+        const dest = overwriteExisitingFiles ?
+            ext === 'ts' ? path.resolve(srcDir, file.replace('.js', '.ts')) : false :
+            name => path.resolve(srcDir, `${name}.${ext}`);
+        return convertFile('class', path.resolve(srcDir, file), dest);
     });
     finalize(mixinsDir, additionalFiles);
     //return;
