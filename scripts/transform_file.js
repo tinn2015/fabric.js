@@ -305,12 +305,8 @@ const classDirs = ['shapes', 'brushes', 'filters'];
 const mixinsDir = path.resolve(wd, './src/mixins');
 const srcDir = path.resolve(wd, './src');
 const fileExt = 'js';
-const overwriteExisitingFiles = false;
+const overwriteExisitingFiles = true;
 
-const dir = path.resolve(srcDir, 'shapes');
-const file='text.class.js'
-convertFile('class', path.resolve(dir, file), overwriteExisitingFiles ? false : name => path.resolve(dir, `${name}.${fileExt}`));
-/*
 classDirs.forEach(klsDir => {
     const dir = path.resolve(srcDir, klsDir);
     fs.readdirSync(dir).forEach(file => {
@@ -325,6 +321,6 @@ const additionalFile = fs.readdirSync(srcDir).filter(file => !fs.lstatSync(path.
 additionalFile.forEach(file => {
     convertFile('class', path.resolve(srcDir, file), overwriteExisitingFiles ? false : name => path.resolve(srcDir, `${name}.${fileExt}`));
 });
-*/
+
 console.error(`failed files:`);
 console.error(failed.map(({ file }) => file));
