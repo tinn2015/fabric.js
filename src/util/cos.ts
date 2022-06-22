@@ -1,4 +1,4 @@
-import type { TRadian } from '../typedefs';
+import type { TDegree, TRadian } from '../typedefs';
 import { halfPI } from '../constants';
 
 /**
@@ -13,9 +13,17 @@ import { halfPI } from '../constants';
 export const cos = (angle: TRadian): number => {
   if (angle === 0) { return 1; }
   var angleSlice = Math.abs(angle) / halfPI;
+  if (angle < 0) {
+    // cos(a) = cos(-a)
+    angle = -angle;
+  }
   switch (angleSlice) {
     case 1: case 3: return 0;
     case 2: return -1;
   }
   return Math.cos(angle);
 };
+
+cos(3.14 as TDegree)
+cos(3.14 as TRadian)
+cos(3.14)
