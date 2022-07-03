@@ -178,10 +178,7 @@
     return {
       e: eventData,
       transform: transform,
-      pointer: {
-        x: x,
-        y: y,
-      }
+      pointer: new fabric.Point(x, y)
     };
   }
 
