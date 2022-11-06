@@ -118,7 +118,7 @@ function ifSpecifiedInclude(moduleName, fileName) {
 
 var filesToInclude = [
   'HEADER.js',
-  ifSpecifiedInclude('global', 'src/globalFabric.js'),
+  // ifSpecifiedInclude('global', 'src/globalFabric.js'),
   ifSpecifiedInclude('gestures', 'lib/event.js'),
 
   'src/mixins/observable.mixin.js',
@@ -237,6 +237,9 @@ var filesToInclude = [
 
   //  extends fabric.StaticCanvas, fabric.Canvas, fabric.Object, depends on fabric.PencilBrush and fabric.Rect
   ifSpecifiedInclude('erasing', 'src/mixins/eraser_brush.mixin.js'),
+
+  '/src/util/qn',
+  '/src/util/history',
 ];
 
 if (buildMinified) {
