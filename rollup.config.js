@@ -7,7 +7,7 @@ export default {
   output: [
     {
         // file: process.env.BUILD_DESTINATION || './dist/fabric.js',
-        file: process.env.BUILD_DESTINATION || '../code/qnfabric/public/lib/fabric.js',
+        file: process.env.BUILD_DESTINATION || '../../code/qnfabric/public/lib/fabric.js',
         name: 'fabric',
         format: 'cjs',
     },
