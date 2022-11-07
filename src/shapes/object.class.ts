@@ -504,7 +504,7 @@ import { Point } from '../point.class';
      * @type Boolean
      * @default true
      */
-    objectCaching:            false, // 设为true的会创建cacheCanvas，会增加GPU内存
+    objectCaching:            objectCaching,
 
     /**
      * When `true`, object properties are checked for cache invalidation. In some particular

@@ -48,6 +48,9 @@
       // 同步当前activeSelection
       if (objects.length) {
         console.log('active_selection', objects)
+        objects.forEach((obj: any) => {
+          obj.hasBorders = obj.hasControls = false
+        })
         options.qn.t = 'as'
         fabric.util.socket && fabric.util.socket.draw({qn: options.qn, oids: objects.map(i => i.qn.oid)})
       }
@@ -123,6 +126,9 @@
      * @return {Boolean} [cancel]
      */
     onDeselect: function() {
+      this._objects.forEach((obj: any) => {
+        obj.hasBorders = obj.hasControls = true
+      })
       this.removeAll();
       const qn = this.qn
       qn.t = 'ds'

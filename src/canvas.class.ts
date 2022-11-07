@@ -982,6 +982,7 @@ import { Point } from './point.class';
       if (this._pointer && ignoreVpt) {
         return this._pointer;
       }
+
       var pointer = getPointer(e),
           upperCanvasEl = this.upperCanvasEl,
           bounds = upperCanvasEl.getBoundingClientRect(),

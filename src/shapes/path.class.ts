@@ -44,7 +44,6 @@
     initialize: function (path, options) {
       // qn modified
       // 获取fabric.freeDrawObject 作为qn
-      console.log('~~~~path init~~~~', this.svgPathMap, options, path)
       if (!options.qn) {
         const qn = fabric.freeDrawObject
         options = Object.assign(options, {qn})

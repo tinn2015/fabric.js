@@ -731,6 +731,7 @@ import { removeFromArray } from './util/internals';
       })
       options.qn.t = obj.type
       if (obj.qn.sync) {
+        console.log('========== sync ===========', options)
         fabric.util.socket && fabric.util.socket.draw(options)
       } else {
         // shape 的中间状态保存， 在mouseup协同
@@ -950,23 +951,6 @@ import { removeFromArray } from './util/internals';
       this.isRendering = 0
       this.fire('after:render', { ctx: ctx, });
       console.timeEnd('==this.canvas.remove(fabric._tempFreePath)==');
-      /**
-       * qn modified
-       * todo: 获取当前canvas的bitmap, 通过java 加速库渲染
-       */
-
-      // console.time('[createImageBitmap]')
-      // createImageBitmap(this.lowerCanvasEl).then((res) => {
-      //   console.log('[createImageBitmap]', res, res.width, res.height)
-      //   console.timeEnd('[createImageBitmap]')
-      //   const canvas =document.createElement('canvas')
-      //   canvas.id = 'bitmap'
-      //   canvas.width = res.width
-      //   canvas.height = res.height
-      //   document.body.appendChild(canvas)
-      //   const ctx = canvas.getContext('2d')
-      //   ctx?.drawImage(res, 50, 50, res.width, res.height)
-      // })
     },
 
     /**
