@@ -151,7 +151,10 @@
       // fabric.util.postWorker({ctx})
       this._renderPathCommands(ctx);
       this._renderPaintInOrder(ctx);
-      // this.canvas.clearContext(this.canvas.contextTop);
+      if (fabric._freePathOnTopCanvas && this.canvas.contextTop) {
+        this.canvas.clearContext(this.canvas.contextTop);
+        fabric._freePathOnTopCanvas
+      }
       document.getElementById('drawTime')?.innerText = Date.now() - fabric._drawPathStamp
     },
 

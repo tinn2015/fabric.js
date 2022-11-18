@@ -11,26 +11,39 @@ import { fabric } from "../../HEADER";
         // canvasJson?: Record<string, any> // 整个画布json
     }
 
-    class History {
+    interface Stack {
+        currentIndex: number,
         stack: snapshot[]
-        currentIndex: number
+    }
+
+    interface Options {
+        fCanvas: Record<string, any>,
+        pages: Record<string, any>
+    }
+
+    class History {
+        stackMap: Map<number, Stack>
         fCanvas: Record<string, any>
+        pages: Record<string, any>
         uiRender: (() => void) | undefined
-        constructor (fCanvas: Record<string, any>) {
-            this.stack = []
-            this.currentIndex = 0
-            this.fCanvas = fCanvas
+        constructor (options: Options) {
+            this.stackMap = new Map()
+            this.fCanvas = options.fCanvas
+            this.pages = options.pages
             window.fabric.util.history= this
         }
         get lastIndex () {
-            return this.stack.length -1 
+            const curStack = this._getCurrentStack()
+            return curStack.stack.length -1 
         }
 
         get canUndo () {
-            return this.currentIndex > -1
+            const curStack = this._getCurrentStack()
+            return curStack.currentIndex > -1
         }
         get canRedo () {
-            return this.currentIndex < this.lastIndex
+            const curStack = this._getCurrentStack()
+            return curStack.currentIndex < this.lastIndex
         }
 
         setUiRender (fn: () => void) {
@@ -38,7 +51,16 @@ import { fabric } from "../../HEADER";
         }
 
         getCurrentStack () {
-            return this.stack[this.currentIndex]
+            const curStack = this._getCurrentStack()
+            return curStack.stack[curStack.currentIndex]
+        }
+
+        /**
+         * 删除指定页的历史记录
+         * @param pageId 
+         */
+        deleteStackByPageId (pageId: number) {
+            this.stackMap.delete(pageId)
         }
 
         /**
@@ -48,8 +70,9 @@ import { fabric } from "../../HEADER";
          * @returns 
          */
         undo (sync=true, callback: () => void) {
-            if (!this.stack.length || this.currentIndex <= -1) return
-            const snapshot = this.stack[this.currentIndex]
+            const curStack = this._getCurrentStack()
+            if (!curStack.stack.length || curStack.currentIndex <= -1) return
+            const snapshot = curStack.stack[curStack.currentIndex]
 
             // 添加/删除 反向操作 add -> remove, remove-> add
             if (snapshot.type === 'add') {
@@ -76,9 +99,11 @@ import { fabric } from "../../HEADER";
             }
 
             this._handle(snapshot, sync)
-            if (this.currentIndex > -1) {
-                this.currentIndex--
+            if (curStack.currentIndex > -1) {
+                curStack.currentIndex -= 1
+                this._setCurrentStack(curStack)
             }
+            console.log('stack currentIndex', curStack.currentIndex)
             this.uiRender && this.uiRender()
 
             // sync && window.fabric.util.socket && window.fabric.util.socket.sendCmd({ cmd: "undo" })
@@ -86,11 +111,13 @@ import { fabric } from "../../HEADER";
         }
         
         redo (sync=true, callback: () => void) {
-            if (!this.stack.length || this.currentIndex == this.lastIndex) return
-            if (this.currentIndex < this.lastIndex) {
-                this.currentIndex++
+            const curStack = this._getCurrentStack()
+            if (!curStack.stack.length || curStack.currentIndex == this.lastIndex) return
+            if (curStack.currentIndex < this.lastIndex) {
+                curStack.currentIndex += 1
+                this._setCurrentStack(curStack)
             }
-            const snapshot = this.stack[this.currentIndex]
+            const snapshot = curStack.stack[curStack.currentIndex]
 
             // 添加/删除 反向操作 add -> remove, remove-> add
             if (snapshot.type === 'add') {
@@ -134,14 +161,15 @@ import { fabric } from "../../HEADER";
          *  6. 橡皮擦
          */
         push (data: snapshot) {
+            const curStack = this._getCurrentStack()
             const { objects } = data
             objects?.forEach(obj => {
                 const {qn} = obj
                 qn.sync = true
             })
-            this.stack.push(data)
-
-            this.currentIndex = this.lastIndex
+            curStack.stack.push(data)
+            curStack.currentIndex = curStack.stack.length - 1
+            this._setCurrentStack(curStack)
             this.uiRender && this.uiRender()
         }
 
@@ -169,7 +197,7 @@ import { fabric } from "../../HEADER";
                     this.__setBackgroundImage(data)
 
             }
-            console.log('this.stack', this.stack)
+            console.log('hitroay stackMap', this.stackMap, this.pages)
         }
 
         // 删除对象
@@ -180,6 +208,7 @@ import { fabric } from "../../HEADER";
                 object.qn.noHistoryStack = true
                 this.fCanvas.remove(object);
             })
+            this.fCanvas.requestRenderAll()
         }
 
         // 添加对象
@@ -240,6 +269,24 @@ import { fabric } from "../../HEADER";
             fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "bgImg", url: current?._element.currentSrc })
         }
 
+        /**
+         * 获取当前页stack
+         * @returns 
+         */
+        private _getCurrentStack () {
+            // console.log('====当前pageId====', this.pages.currentPageId)
+            const curStack = this.stackMap.get(this.pages.currentPageId) || {currentIndex: -1, stack: []}
+            // console.log('获取当前页stack', curStack)
+            return curStack
+        }
+
+        /**
+         * 更新当前当前页stack
+         * @param stack 
+         */
+        private _setCurrentStack (stack: Stack) {
+            this.stackMap.set(this.pages.currentPageId, stack)
+        }
     }
 
 

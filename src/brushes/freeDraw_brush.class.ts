@@ -125,7 +125,6 @@ import { Point } from '../point.class';
           this.oldEnd = this._drawSegment(ctx, points[length - 2], points[length - 1], true);
           ctx.stroke();
           ctx.restore();
-          console.log('mousemove', pointer)
           // this._drawSegment(ctx, points[length - 2], points[length - 1], true)
         }
       }
@@ -365,7 +364,6 @@ import { Point } from '../point.class';
       // var _pathData = this.convertPointsToSVGPath(this._points);
       // console.log('convertPointsToSVGPath', _pathData)
       var pathData = this.svgPaths
-      console.log('svgPaths', pathData)
 
       if (this._isEmptySVGPath(pathData)) {
         // do not create 0 width/height paths, as they are
@@ -380,9 +378,13 @@ import { Point } from '../point.class';
       this.canvas.add(path);
       this.canvas.renderCanvasByOne(this.canvas.contextContainer, path)
       // this.canvas.requestRenderAll();
+      
+      // 再下一帧中删除上层画布的path， 预期改善最后一笔的延迟
+      fabric._freePathOnTopCanvas = true
+
       path.setCoords();
       this._resetShadow();
-      this.canvas.clearContext(this.canvas.contextTop);
+      // this.canvas.clearContext(this.canvas.contextTop);
 
       // path 添加历史栈
       !path.qn.noHistoryStack && fabric.util.history && fabric.util.history.push({

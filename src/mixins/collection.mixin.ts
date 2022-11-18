@@ -61,7 +61,7 @@
       var objects = this._objects, removed = [];
       for (var i = 0, object, index; i < objectsToRemove.length; i++) {
         object = objectsToRemove[i];
-        index = objects.indexOf(object);
+        index = objects.findIndex(obj => obj.qn.oid === object.qn.oid);
         // only call onObjectRemoved if an object was actually removed
         if (index !== -1) {
           objects.splice(index, 1);
