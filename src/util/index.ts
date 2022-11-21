@@ -162,3 +162,13 @@ export {
     composeMatrix,
     rotatePoint
 };
+
+export const isNumber = (data: number) => {
+    if (typeof data !== 'number') {
+        return false
+    }
+    if (Number.isNaN(data)) {
+        return false
+    }
+    return true
+}
