@@ -172,3 +172,14 @@ export const isNumber = (data: number) => {
     }
     return true
 }
+
+export const getSyncOptions = (obj: any) => {
+    const syncProps = ['width', 'height', 'cornerColor', 'fill', 'qn', 'left', 'top', 'height', 'stroke', 'strokeWidth', 'radius', 'x1', 'x2', 'y1', 'y2', 'strokeLineCap', 'zoomX', 'zoomY', 'scaleX', 'scaleY']
+    const options = {}
+    Object.keys(obj).forEach(key => {
+    if (syncProps.includes(key)) {
+        options[key] = obj[key]
+    }
+    })
+    return options
+}

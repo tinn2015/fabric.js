@@ -124,7 +124,6 @@ import {isNumber} from '../util/index'
       if (!this.canvas._isMainEvent(options.e)) {
         return;
       }
-      console.log('=====freeDraw.onmousemove=====', pointer)
       this.drawStraightLine = options.e[this.straightLineKey];
       if (this.limitedToCanvasSize === true && this._isOutSideCanvas(pointer)) {
         return;
@@ -247,7 +246,6 @@ import {isNumber} from '../util/index'
         console.log('====_pointsMap====', touchEventIdentifier, this._pointsMap.get(touchEventIdentifier))
         return true
       } else {
-        console.log('addpoint', point)
         if (this._points.length > 1 && point.eq(this._points[this._points.length - 1])) {  // 已经是最后一个点避免重复加入
           return false;
         }
@@ -304,7 +302,7 @@ import {isNumber} from '../util/index'
         }
         this.svgPaths.push(svgPath)
         // 生成path的时候socket同步
-        fabric.util.socket && fabric.util.socket.draw({qn: fabric.freeDrawObject, index: this.svgPaths.length, path: this.svgPath});
+        fabric.util.socket && fabric.util.socket.draw({qn: fabric.freeDrawObject, index: this.svgPaths.length, path: svgPath});
       }
 
     },
@@ -525,6 +523,9 @@ import {isNumber} from '../util/index'
         this.svgPathMap.delete(eventParams.touchEventIdentifier)
       }
 
+      // 再下一帧中删除上层画布的path， 预期改善最后一笔的延迟
+      fabric._freePathOnTopCanvas = true
+      
       // this.canvas.requestRenderAll();
       path.setCoords();
       this._resetShadow();

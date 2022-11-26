@@ -2,6 +2,7 @@
 //@ts-nocheck
 import { Point } from './point.class';
 import { removeFromArray } from './util/internals';
+import { getSyncOptions } from './util/index';
 
 (function (global) {
   // aliases for faster resolution
@@ -722,13 +723,7 @@ import { removeFromArray } from './util/internals';
 
       // qn modified
       // 同步新增object
-      const syncProps = ['width', 'height', 'cornerColor', 'fill', 'qn', 'left', 'top', 'height', 'stroke', 'strokeWidth', 'radius', 'x1', 'x2', 'y1', 'y2', 'strokeLineCap', 'zoomX', 'zoomY', 'scaleX', 'scaleY']
-      const options = {}
-      Object.keys(obj).forEach(key => {
-        if (syncProps.includes(key)) {
-          options[key] = obj[key]
-        }
-      })
+      const options = getSyncOptions(obj)
       options.qn.t = obj.type
       if (obj.qn.sync) {
         console.log('========== sync ===========', options)

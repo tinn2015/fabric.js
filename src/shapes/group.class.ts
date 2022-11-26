@@ -91,10 +91,14 @@ import { Point } from '../point.class';
       this._firstLayoutDone = false;
        // qn modifled
       // group 添加 qn 标识
-      if (!options.qn) {
+      if (options && !options.qn) {
         options.qn = fabric.util.genQn()
       }
-      options.qn.t = 'group'
+      if (options.type === 'eraser') {
+        options.qn.t = 'eraser'
+      } else {
+        options.qn.t = 'group'
+      }
       console.log('group initialize', options)
       //  setting angle, skewX, skewY must occur after initial layout
       this.callSuper('initialize', Object.assign({}, options, { angle: 0, skewX: 0, skewY: 0 }));

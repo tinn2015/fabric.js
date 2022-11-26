@@ -1,5 +1,7 @@
+/* eslint-disable no-var */
 //@ts-nocheck
 import { Point } from '../point.class';
+import { getSyncOptions } from '../util/index';
 
 (function (global) {
   /** ERASER_START */
@@ -666,7 +668,9 @@ import { Point } from '../point.class';
         //  prepare eraser
         var eraser = obj.eraser;
         if (!eraser) {
-          eraser = new fabric.Eraser();
+          // qn modified
+          // 新建eraser group 添加 标识
+          eraser = new fabric.Eraser(null, {type: 'eraser'});
           obj.eraser = eraser;
         }
         //  clone and add path
@@ -736,6 +740,9 @@ import { Point } from '../point.class';
         canvas.clearContext(canvas.contextTop);
         this._isErasing = false;
 
+        // 生成当前path的qn, 这是一个全局对象
+        fabric.freeDrawObject = fabric.util.genQn({t: 'fp'})
+
         var pathData = this._points && this._points.length > 1 ?
           this.convertPointsToSVGPath(this._points) :
           null;
@@ -750,6 +757,7 @@ import { Point } from '../point.class';
         }
 
         var path = this.createPath(pathData);
+
         //  needed for `intersectsWithObject`
         path.setCoords();
         //  commense event sequence
@@ -775,6 +783,80 @@ import { Point } from '../point.class';
               path: path
             }));
 
+            console.log('eraser:end', Object.assign(context, {
+              path: path
+            }))
+
+            // 同步当前橡皮擦轨迹
+            // 同步新增object
+            const options = getSyncOptions(path)
+            options.qn.t = 'eraser'
+            options.qn.oids = context.targets.map(i => i.qn.oid)
+            if (path.qn.sync) {
+              console.log('========== sync ===========', options)
+              fabric.util.socket && fabric.util.socket.draw(options)
+            }
+
+
+            canvas.requestRenderAll();
+            _this._resetShadow();
+
+            // fire event 'path' created
+            canvas.fire('path:created', { path: path });
+          });
+      },
+
+      /**
+       * 根据橡皮檫轨迹删除
+       * @returns 
+       */
+      _renderEraserByPath: function (canvas, path) {
+        this.canvas = canvas
+
+        path.globalCompositeOperation = 'destination-out';
+        
+        this._isErasing = true;
+
+        //  needed for `intersectsWithObject`
+        path.setCoords();
+        //  commense event sequence
+        canvas.fire('before:path:created', { path: path });
+
+        // finalize erasing
+        var _this = this;
+        var context = {
+          targets: [],
+          subTargets: [],
+          //paths: new Map(),
+          drawables: {}
+        };
+        var tasks = canvas._objects.map(function (obj) {
+          return obj.erasable && obj.intersectsWithObject(path, true, true) &&
+            _this._addPathToObjectEraser(obj, path, context);
+        });
+        tasks.push(_this.applyEraserToCanvas(path, context));
+        return Promise.all(tasks)
+          .then(function () {
+            //  fire erasing:end
+            canvas.fire('erasing:end', Object.assign(context, {
+              path: path
+            }));
+
+            console.log('eraser:end', Object.assign(context, {
+              path: path
+            }))
+
+            // 同步当前橡皮擦轨迹
+            // 同步新增object
+            // const options = getSyncOptions(path)
+            // options.qn.t = 'eraser'
+            // options.qn.oids = context.targets.map(i => i.qn.oid)
+            // if (path.qn.sync) {
+            //   console.log('========== sync ===========', options)
+            //   fabric.util.socket && fabric.util.socket.draw(options)
+            // }
+
+            _this._isErasing = false;
             canvas.requestRenderAll();
             _this._resetShadow();
 

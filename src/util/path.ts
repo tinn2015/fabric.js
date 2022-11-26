@@ -765,6 +765,9 @@ import { Point } from '../point.class';
       multSignY = points[2].y < p2.y ? -1 : points[2].y === p2.y ? 0 : 1;
     }
     path.push(['M', p1.x - multSignX * correction, p1.y - multSignY * correction]);
+    // 生成path的时候socket同步
+    console.log('eraser point', ['M', p1.x - multSignX * correction, p1.y - multSignY * correction])
+    fabric.util.socket && fabric.util.socket.draw({qn: fabric.freeDrawObject, index: 0, path: ['M', p1.x - multSignX * correction, p1.y - multSignY * correction]});
     for (i = 1; i < len; i++) {
       if (!p1.eq(p2)) {
         var midPoint = p1.midPointFrom(p2);
@@ -772,6 +775,8 @@ import { Point } from '../point.class';
         // midpoint is our endpoint
         // start point is p(i-1) value.
         path.push(['Q', p1.x, p1.y, midPoint.x, midPoint.y]);
+        console.log('eraser point', ['Q', p1.x, p1.y, midPoint.x, midPoint.y])
+        fabric.util.socket && fabric.util.socket.draw({qn: fabric.freeDrawObject, index: i, path: ['Q', p1.x, p1.y, midPoint.x, midPoint.y]});
       }
       p1 = points[i];
       if ((i + 1) < points.length) {
@@ -783,6 +788,8 @@ import { Point } from '../point.class';
       multSignY = p1.y > points[i - 2].y ? 1 : p1.y === points[i - 2].y ? 0 : -1;
     }
     path.push(['L', p1.x + multSignX * correction, p1.y + multSignY * correction]);
+    console.log('eraser point', ['L', p1.x + multSignX * correction, p1.y + multSignY * correction])
+    fabric.util.socket && fabric.util.socket.draw({qn: fabric.freeDrawObject, index: points.length + 1, path: ['L', p1.x + multSignX * correction, p1.y + multSignY * correction]});
     return path;
   }
   /**

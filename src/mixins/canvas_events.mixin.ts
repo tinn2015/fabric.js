@@ -476,7 +476,7 @@
      * @param {Event} e Event object fired on mousedown
      */
     _onTouchStart: function(e) {
-      console.log('=======_onTouchStart=======', e)
+      console.log('=======_onTouchStart=======', e.changedTouches)
       e.preventDefault();
       // 避免重复监听
       if (this.touchesMap.size === 0) {
@@ -579,7 +579,6 @@
      */
     _onMouseMove: function (e) {
       // console.log('====[enablePointerEvents]====', this.enablePointerEvents)
-      console.log('====mouse/touch move====', e)
       var activeObject = this.getActiveObject();
       !this.allowTouchScrolling && (!activeObject || !activeObject.__isDragging)
         && e.preventDefault && e.preventDefault();
@@ -948,7 +947,6 @@
      * @param {Event} e Event object fired on mousemove
      */
     _onMouseMoveInDrawingMode: function(e) {
-      console.log('~~~~this._isCurrentlyDrawing', this._isCurrentlyDrawing)
       if (this._isCurrentlyDrawing) {
         var pointer = this.getPointer(e);
         this.freeDrawingBrush.onMouseMove(pointer, { e: e, pointer: pointer });
@@ -1084,10 +1082,7 @@
       this._resetTransformEventData();
       this._pointer = this.getPointer(e, true);
       this._absolutePointer = this.restorePointerVpt(this._pointer);
-      console.log('~~~~~~~~~this._pointer~~~~~~~', this._pointer)
-      console.log('~~~~~~~~~this._absolutePointer~~~~~~~', this._absolutePointer)
       this._target = this._currentTransform ? this._currentTransform.target : this.findTarget(e) || null;
-      console.log('~~~~~~~~~this._target~~~~~~~', this._target)
     },
 
     /**
