@@ -376,16 +376,16 @@ import { Point } from '../point.class';
       var path = this.createPath(pathData);
       this.canvas.fire('before:path:created', { path: path });
       this.canvas.add(path);
-      this.canvas.renderCanvasByOne(this.canvas.contextContainer, path)
-      // this.canvas.requestRenderAll();
-      
       // 再下一帧中删除上层画布的path， 预期改善最后一笔的延迟
       fabric._freePathOnTopCanvas = true
+      this.canvas.renderCanvasByOne(this.canvas.contextContainer, path)
+      // this.canvas.requestRenderAll();
 
       path.setCoords();
       this._resetShadow();
       // this.canvas.clearContext(this.canvas.contextTop);
 
+      console.log('history push, shape 添加历史栈')
       // path 添加历史栈
       !path.qn.noHistoryStack && fabric.util.history && fabric.util.history.push({
         type: 'add',

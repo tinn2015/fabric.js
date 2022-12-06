@@ -74,11 +74,19 @@ import { fabric } from "../../HEADER";
             if (!curStack.stack.length || curStack.currentIndex <= -1) return
             const snapshot = curStack.stack[curStack.currentIndex]
 
-            // 添加/删除 反向操作 add -> remove, remove-> add
+            // 添加/删除 反向操作 add -> remove, remove-> add, delete -> deleteAdd,  deleteAdd -> delete
             if (snapshot.type === 'add') {
                 snapshot.type = 'remove'
             } else if (snapshot.type === 'remove') {
                 snapshot.type = 'add'
+            } else if (snapshot.type === 'delete') {
+                snapshot.type = 'deleteAdd'
+            } else if (snapshot.type === 'deleteAdd') {
+                snapshot.type = 'delete'
+            } else if (snapshot.type === 'clear') {
+                snapshot.type = 'recoverClear'
+            } else if (snapshot.type === 'recoverClear') {
+                snapshot.type = 'clear'
             }
 
             // 修改 反向操作 current -> original
@@ -89,7 +97,7 @@ import { fabric } from "../../HEADER";
             }) : null
 
             // 清除, 设置背景色，设置背景图 反向操作 current -> original
-            if (snapshot.type === 'clear'  || snapshot.type === 'bgColor' || snapshot.type === 'bgImage') {
+            if (snapshot.type === 'bgColor' || snapshot.type === 'bgImage') {
                 const temp = snapshot.current
                 snapshot.current = snapshot.original
                 snapshot.original = temp
@@ -124,6 +132,14 @@ import { fabric } from "../../HEADER";
                 snapshot.type = 'remove'
             } else if (snapshot.type === 'remove') {
                 snapshot.type = 'add'
+            } else if (snapshot.type === 'delete') {
+                snapshot.type = 'deleteAdd'
+            } else if (snapshot.type === 'deleteAdd') {
+                snapshot.type = 'delete'
+            } else if (snapshot.type === 'clear') {
+                snapshot.type = 'recoverClear'
+            } else if (snapshot.type === 'recoverClear') {
+                snapshot.type = 'clear'
             }
 
             // 反向操作 original -> current
@@ -137,7 +153,7 @@ import { fabric } from "../../HEADER";
             }) : null
 
             // 清除, 设置背景色，设置背景图 反向操作 current -> original
-            if (snapshot.type === 'clear' || snapshot.type === 'bgColor' || snapshot.type === 'bgImage') {
+            if (snapshot.type === 'bgColor' || snapshot.type === 'bgImage') {
                 const temp = snapshot.current
                 snapshot.current = snapshot.original
                 snapshot.original = temp
@@ -155,7 +171,7 @@ import { fabric } from "../../HEADER";
          * 需要入栈的行为
          *  1. 新建对象 add
          *  2. 修改对象（单个、group） modified
-         *  3. 删除对象 remove
+         *  3. 删除对象 delete/remove
          *  4. clear clear
          *  5. 设置背景 setBgColor/setBgImg
          *  6. 橡皮擦
@@ -167,8 +183,35 @@ import { fabric } from "../../HEADER";
                 const {qn} = obj
                 qn.sync = true
             })
+            console.log('====history push before====',curStack.stack.length, curStack.stack)
+
+            // 每次有新内容的时候删除之前undo的内容
+            const removeStoreIds = []
+            for (let i = 0; i < curStack.stack.length; i++) {
+                const item = curStack.stack[i]
+                if (item && item.type === 'remove') {
+                    curStack.stack.splice(i, 1)
+                    if (item.objects && item.objects.length) {
+                        const oids = item.objects.map(obj => obj.qn.oid)
+                        removeStoreIds.push(...oids)
+                    }
+                    console.log('====history push remove====',curStack.stack.length, curStack.stack)
+                    i -= 1
+                }
+            }
+            if (removeStoreIds.length) {
+                // 通知remove storepath
+                fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "rs", oids: removeStoreIds})
+            }
+            console.log('====history push current stack====',curStack.stack.length, curStack.stack)
             curStack.stack.push(data)
+            if (!(window as any).historyPushNum) {
+                (window as any).historyPushNum = 1
+            } else {
+                (window as any).historyPushNum += 1
+            }
             curStack.currentIndex = curStack.stack.length - 1
+            console.log(`history push pageId:${this.pages.currentPageId}, currentIndex:${curStack.currentIndex}, stack: ${curStack.stack.length}`)
             this._setCurrentStack(curStack)
             this.uiRender && this.uiRender()
         }
@@ -184,11 +227,20 @@ import { fabric } from "../../HEADER";
                 case 'remove':
                     this.__objectRemove(data, sync)
                     break
+                case 'deleteAdd':
+                    this.__objectAdd(data, sync)
+                    break
+                case 'delete':
+                    this.__objectRemove(data, sync)
+                    break
                 case 'modified':
                     this.__objectModified(data, sync)
                     break
                 case 'clear':
-                    this.__clearCanvas(data)
+                    this.__clearCanvas(data, sync)
+                    break
+                case 'recoverClear':
+                    this.__recoverClearCanvas(data, sync)
                     break
                 case 'bgColor':
                     this.__setBackgroundColor(data)
@@ -230,6 +282,7 @@ import { fabric } from "../../HEADER";
                 const index = this.fCanvas.getObjects().findIndex((i: any) => i.qn.oid === obj.qn.oid)
                 if (index > -1) {
                     this.fCanvas.item(index).setOptions(obj.current)
+                    this.fCanvas.item(index).setCoords()
 
                     // undo/redo 的修改协同
                     fabric.util.socket && fabric.util.socket.draw(Object.assign({}, obj.current, {qn: obj.qn, at: action}))
@@ -239,16 +292,47 @@ import { fabric } from "../../HEADER";
         }
 
         // 画布清除
-        async __clearCanvas(data: snapshot) {
-            const {current} = data
-            // if (current?.objects.length) {
-            //     current.objects.forEach((i: any) => {
-            //         // 收消息标识， 避免load的时候发送socket
-            //         i.qn.isReceived = true
-            //     })
+        // 这里应该改为 clear recovery
+        async __clearCanvas(data: snapshot, sync: boolean) {
+            console.log('__clearCanvas', data, sync)
+            const {objects} = data
+            const curObjects = this.fCanvas.getObjects()
+            if (objects) {
+                const removeObjIds = objects.map(obj => obj.qn.oid)
+                const removeObjects = curObjects.filter((obj: any) => {
+                    if (removeObjIds.includes(obj.qn.oid)) {
+                        obj.qn.noHistoryStack = true
+                        // obj.qn.sync = false
+                        return true
+                    }
+                    return false
+                })
+                this.fCanvas.remove(...removeObjects)
+            }
+            // console.log('__clearCanvas', current)
+            // if (current && current.objects.length) {
+            //     const curObjects = this.fCanvas.getObjects()
+            //     const curObj =JSON.parse(JSON.stringify(current))
+            //     curObj.objects.push(...curObjects) 
+            //     this.fCanvas.loadFromJSON(curObj)
+            // } else {
+            //     await this.fCanvas.loadFromJSON(current)
             // }
-            await this.fCanvas.loadFromJSON(current)
             this.fCanvas.requestRenderAll()
+        }
+
+        // 恢复被清除的内容
+        async __recoverClearCanvas (data: snapshot, sync: boolean) {
+            console.log('__recoverClearCanvas', data, sync)
+            const {objects} = data
+            if (objects) {
+                // objects.forEach(obj => obj.qn.sync = false)
+                console.log('__clearCanvas', objects)
+                const json = this.fCanvas.toJSON()
+                json.objects.push(...objects) 
+                this.fCanvas.loadFromJSON(json)
+                this.fCanvas.requestRenderAll()
+            }
         }
 
         // 设置背景色

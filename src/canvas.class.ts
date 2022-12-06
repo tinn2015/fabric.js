@@ -802,6 +802,10 @@ import { Point } from './point.class';
           maxY = Math.max(start.y, extent.y),
           strokeOffset = this.selectionLineWidth / 2;
 
+      // qn modified
+      // [bug] dont draw selection dot
+      if (maxX - minX < 5 || maxY - minY < 5) return
+
       if (this.selectionColor) {
         ctx.fillStyle = this.selectionColor;
         ctx.fillRect(minX, minY, maxX - minX, maxY - minY);
@@ -1354,14 +1358,10 @@ import { Point } from './point.class';
         fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "clear" })
 
         const canvasJson = this.toJSON()
-        const original = JSON.parse(JSON.stringify(canvasJson))
-        canvasJson.objects = []
-        const current = canvasJson
         // 添加历史栈
         fabric.util.history && fabric.util.history.push({
           type: 'clear',
-          current,
-          original
+          objects: canvasJson.objects
         })
       }
       fabric._tempIsCleared = true
