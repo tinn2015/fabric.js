@@ -531,7 +531,7 @@
           maxDestH = min(h, elHeight / scaleY - cropY);
       console.log('_renderFill', this.width, this.height, this, ctx)
       // elementToDraw && ctx.drawImage(elementToDraw, sX, sY, sW, sH, x, y, maxDestW / fabric.devicePixelRatio, maxDestH / fabric.devicePixelRatio);
-      
+      console.log('background render params:', sX, sY, sW, sH, x, y, ctx.canvas.width / fabric.devicePixelRatio, ctx.canvas.height / fabric.devicePixelRatio)
       // qn modified
       // [bug] 设置背景图比例问题
       elementToDraw && ctx.drawImage(elementToDraw, sX, sY, sW, sH, x, y, ctx.canvas.width / fabric.devicePixelRatio, ctx.canvas.height / fabric.devicePixelRatio);

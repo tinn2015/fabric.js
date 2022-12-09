@@ -153,7 +153,7 @@
       this._renderPaintInOrder(ctx);
       if (fabric._freePathOnTopCanvas && this.canvas.contextTop) {
         this.canvas.clearContext(this.canvas.contextTop);
-        fabric._freePathOnTopCanvas
+        fabric._freePathOnTopCanvas = false
       }
       document.getElementById('drawTime')?.innerText = Date.now() - fabric._drawPathStamp
     },

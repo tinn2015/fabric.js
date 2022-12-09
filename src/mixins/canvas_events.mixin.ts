@@ -760,17 +760,17 @@
      */
     _handleEvent: function(e, eventType, button, isClick) {
       var target = this._target,
-          targets = this.targets || [],
-          options = {
-            e: e,
-            target: target,
-            subTargets: targets,
-            button: button || LEFT_CLICK,
-            isClick: isClick || false,
-            pointer: this._pointer,
-            absolutePointer: this._absolutePointer,
-            transform: this._currentTransform
-          };
+      targets = this.targets || [],
+      options = {
+        e: e,
+        target: target,
+        subTargets: targets,
+        button: button || LEFT_CLICK,
+        isClick: isClick || false,
+        pointer: this._pointer,
+        absolutePointer: this._absolutePointer,
+        transform: this._currentTransform
+      };
       if (eventType === 'up') {
         options.currentTarget = this.findTarget(e);
         options.currentSubTargets = this.targets;
@@ -778,19 +778,38 @@
         // qn modified
         // shape 协同
         console.log('mouseup shape', fabric._shapeOption, target)
-        if (fabric._shapeOption) {
-          console.log('shape options', fabric._shapeOption)
-          fabric._shapeOption.qn.sync = true
-          fabric.util.socket && fabric.util.socket.draw(fabric._shapeOption)
+        const fabricItemParams = fabric._shapeOption
+        if (fabricItemParams) {
+          console.log('shape options', fabricItemParams)
+          fabricItemParams.qn.sync = true
+          fabric.util.socket && fabric.util.socket.draw(fabricItemParams)
+
+          // qn modified
+        // shape 添加历史栈
+        console.log('===mouseup call===', 'history push', fabric._tmpDrawingObj)
+        if (fabric.util.history)  {
+          const shapeMap = {circle: 'Circle', rect: 'Rect', triangle: 'Triangle', line: 'Line'}
+          const type = shapeMap[fabricItemParams.qn.t]
+          // line 需要两个参数
+          let shape
+          if (type === 'Line') {
+            const points = [fabricItemParams.x1, fabricItemParams.y1, fabricItemParams.x2, fabricItemParams.y2]
+            shape = new window.fabric[type](points, fabricItemParams)
+          } else {
+            shape = new window.fabric[type](fabricItemParams)
+          }
+          console.log(`history push, shape 添加历史栈， object: ${fabricItemParams}, options.currentTarget: ${options.currentTarget}`)
+          fabric.util.history.push({
+            type: 'add',
+            objects: [shape]
+          })
+        }
           fabric._shapeOption = null // 重置shape option
         }
 
-        // qn modified
-        // shape 添加历史栈
-        target && !target.qn.noHistoryStach && fabric._tmpDrawingObj && fabric.util.history && fabric.util.history.push({
-          type: 'add',
-          objects: [target]
-        })
+      }
+      if (eventType === 'down') {
+        console.log('fabric._shapeOption:', fabric._shapeOption)
       }
       this.fire('mouse:' + eventType, options);
       target && target.fire('mouse' + eventType, options);
@@ -1059,6 +1078,9 @@
       invalidate && (this._objectsToRender = undefined);
       this._handleEvent(e, 'down');
       // we must renderAll so that we update the visuals
+
+      // shape 的中间状态， 初始是重置
+      fabric._shapeOption = null
       invalidate && this.requestRenderAll();
     },
 

@@ -200,6 +200,13 @@ import { getSyncOptions } from './util/index';
     clipPath: undefined,
 
     /**
+     * 用于控制是否清除上层画布, 避免收消息时上层画布被清除。
+     *  1. 只有自己绘制的时候才需要清除上层画布
+     *  2. 收消息绘制时无需清除上层画布
+     */
+    needClearTopContext: false,
+
+    /**
      * @private
      * @param {HTMLElement | String} el &lt;canvas> element to initialize instance on
      * @param {Object} [options] Options object
@@ -435,40 +442,40 @@ import { getSyncOptions } from './util/index';
         backgroundImage: img,
         backgroundColor: ''
       })
-      sync && urlOrImg && fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "bgImg", url: urlOrImg, color })
+      // sync && urlOrImg && fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "bgImg", url: urlOrImg, color })
 
       // 添加历史栈
-      sync && urlOrImg && fabric.util.history && fabric.util.history.push({
-        type: 'bgImage',
-        current: img,
-        original,
-      })
+      // sync && urlOrImg && fabric.util.history && fabric.util.history.push({
+      //   type: 'bgImage',
+      //   current: img,
+      //   original,
+      // })
 
       // 保存上一次操作的图片
       urlOrImg && (this.lastBackgroundColorOrImage = img)
 
-      this.renderOnAddRemove && this.requestRenderAll();
+      this.renderOnAddRemove && await this.requestRenderAll();
       return this
     },
 
-    setBackgroundColor: function (color, sync=true) {
+    setBackgroundColor: async function (color, sync=true) {
       const original = this.lastBackgroundColorOrImage || this.backgroundColor
       this.set({
         backgroundColor: color,
         backgroundImage: ''
       })
-      sync && color && fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "bgColor", color })
+      // sync && color && fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "bgColor", color })
 
       // 添加历史栈
-      sync && color && fabric.util.history && fabric.util.history.push({
-        type: 'bgColor',
-        current: color,
-        original
-      })
+      // sync && color && fabric.util.history && fabric.util.history.push({
+      //   type: 'bgColor',
+      //   current: color,
+      //   original
+      // })
 
       color && (this.lastBackgroundColorOrImage = color)
 
-      this.renderOnAddRemove && this.requestRenderAll();
+      this.renderOnAddRemove && await this.requestRenderAll();
       return this
     },
 
@@ -666,6 +673,9 @@ import { getSyncOptions } from './util/index';
      * @chainable
      */
     add: function () {
+      if (arguments.length && arguments[0].qn && arguments[0].qn.sync) {
+        this.needClearTopContext = true
+      }
       fabric.Collection.add.call(this, arguments, this._onObjectAdded);
       console.log('canvas add', arguments)
       
@@ -748,7 +758,7 @@ import { getSyncOptions } from './util/index';
       this.fire('object:removed', { target: obj });
       // qn modified
       // 异步判断当前obj是否还存在，
-      if (obj.qn.sync && !fabric._tempIsCleared && !fabric._tmpDrawingObj) {
+      if (obj.qn.sync && !fabric._tempIsCleared) {
         fabric.util.socket && fabric.util.socket.sendCmd({cmd: 'remove', qn: obj.qn})
       }
 
@@ -769,7 +779,14 @@ import { getSyncOptions } from './util/index';
      * @chainable
      */
     clearContext: function(ctx) {
-      ctx.clearRect(0, 0, this.width, this.height);
+      const ctxClassList = Array.from(ctx.canvas.classList)
+      if (ctxClassList.includes('uppper-canvas')) {
+        this.needClearTopContext && ctx.clearRect(0, 0, this.width, this.height);
+        this.needClearTopContext = false
+      } else {
+        ctx.clearRect(0, 0, this.width, this.height);
+      }
+      console.log('====clearContext====', this.needClearTopContext, ctx)
       return this;
     },
 
