@@ -269,7 +269,9 @@ import { fabric } from "../../HEADER";
             objects?.forEach(object => {
                 object.qn.sync = sync
                 object.qn.noHistoryStack = true
-                this.fCanvas.add(object);
+                const ratioObject = this._getRatioObject(object)
+                // 设备适配
+                this.fCanvas.add(ratioObject);
             })
             this.fCanvas.requestRenderAll()
         }
@@ -281,7 +283,8 @@ import { fabric } from "../../HEADER";
             objects?.forEach(obj => {
                 const index = this.fCanvas.getObjects().findIndex((i: any) => i.qn.oid === obj.qn.oid)
                 if (index > -1) {
-                    this.fCanvas.item(index).setOptions(obj.current)
+                    const ratioObject = this._getRatioObject(obj.current)
+                    this.fCanvas.item(index).setOptions(ratioObject)
                     this.fCanvas.item(index).setCoords()
 
                     // undo/redo 的修改协同
@@ -370,6 +373,22 @@ import { fabric } from "../../HEADER";
          */
         private _setCurrentStack (stack: Stack) {
             this.stackMap.set(this.pages.currentPageId, stack)
+        }
+
+        // 获取设备适配后的object
+        private _getRatioObject (object: any) {
+            const curWidth = this.fCanvas.getWidth();
+            const curHeight = this.fCanvas.getHeight();
+            const {qn} = object
+            const ratioX = curWidth / qn.w;
+            // const ratioY = curHeight / qn.h;
+            object.scaleX = ((object.scaleX as number) || 1) * ratioX;
+            object.left && (object.left = (object.left as number) * ratioX);
+            object.scaleY = ((object.scaleY as number) || 1) * ratioX;
+            object.top && (object.top = (object.top as number) * ratioX);
+            qn.w = curWidth;
+            qn.h = curHeight;
+            return object
         }
     }
 
