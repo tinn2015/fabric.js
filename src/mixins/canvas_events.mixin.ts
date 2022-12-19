@@ -22,11 +22,6 @@
     mainTouchId: null,
 
     /**
-     * 多指操作时， 用于保存touch事件id
-     */
-    touchesMap: new Map(),
-
-    /**
      * Adds mouse listeners to canvas
      * @private
      */
@@ -67,7 +62,6 @@
       if (!this.enablePointerEvents) {
         functor(canvasElement, 'touchstart', this._onTouchStart, addEventOptions);
       }
-      console.log('===============eventjs====================', eventjs)
       if (typeof eventjs !== 'undefined' && eventjsFunctor in eventjs) {
         eventjs[eventjsFunctor](canvasElement, 'gesture', this._onGesture);
         eventjs[eventjsFunctor](canvasElement, 'drag', this._onDrag);
@@ -130,7 +124,6 @@
      * @param {Event} [self] Inner Event object
      */
     _onGesture: function(e, self) {
-      // console.log('==[event, _onGesture]==', e, self)
       this.__onTransformGesture && this.__onTransformGesture(e, self);
     },
 
@@ -140,7 +133,6 @@
      * @param {Event} [self] Inner Event object
      */
     _onDrag: function(e, self) {
-      // console.log('==[event, _onDrag]==', e, self)
       this.__onDrag && this.__onDrag(e, self);
     },
 
@@ -201,7 +193,6 @@
      * @param {Event} [self] Inner Event object
      */
     _onOrientationChange: function(e, self) {
-      console.log('==[event, longPress]==', e, self)
       this.__onOrientationChange && this.__onOrientationChange(e, self);
     },
 
@@ -211,7 +202,6 @@
      * @param {Event} [self] Inner Event object
      */
     _onShake: function(e, self) {
-      console.log('==[event, _onShake]==', e, self)
       this.__onShake && this.__onShake(e, self);
     },
 
@@ -221,7 +211,6 @@
      * @param {Event} [self] Inner Event object
      */
     _onLongPress: function(e, self) {
-      console.log('==[event, longPress]==', e, self)
       this.__onLongPress && this.__onLongPress(e, self);
     },
 
@@ -465,9 +454,9 @@
       if (evt.type === 'touchend' && evt.touches.length === 0) {
         return true;
       }
-      // if (evt.changedTouches) {
-      //   return evt.changedTouches[0].identifier === this.mainTouchId;
-      // }
+      if (evt.changedTouches) {
+        return evt.changedTouches[0].identifier === this.mainTouchId;
+      }
       return true;
     },
 
@@ -476,35 +465,22 @@
      * @param {Event} e Event object fired on mousedown
      */
     _onTouchStart: function(e) {
-      console.log('=======_onTouchStart=======', e.changedTouches)
+      console.log('=======_onTouchStart=======', e)
       e.preventDefault();
-      // 避免重复监听
-      if (this.touchesMap.size === 0) {
-        var canvasElement = this.upperCanvasEl,
-        eventTypePrefix = this._getEventPrefix();
-        addListener(fabric.document, 'touchend', this._onTouchEnd, addEventOptions);
-        addListener(fabric.document, 'touchmove', this._onMouseMove, addEventOptions);
-        // Unbind mousedown to prevent double triggers from touch devices
-        removeListener(canvasElement, eventTypePrefix + 'down', this._onMouseDown);
+      if (this.mainTouchId === null) {
+        this.mainTouchId = this.getPointerId(e);
       }
-      
-      const changedTouches = e.changedTouches
-      for (let i = 0; i < changedTouches.length; i++) {
-        const touchEvent = changedTouches[i]
-        touchEvent.pointerType = e.type.indexOf('touch') > -1 ? 'touch' : 'mouse'
-        this.__onMouseDown(touchEvent);
-        this._resetTransformEventData();
-        this.touchesMap.set(touchEvent.identifier, touchEvent)
-      }
-      
-      console.log('this.touchesMap.size', this.touchesMap.size)
-      // if (this.mainTouchId === null) {
-        //   this.mainTouchId = this.getPointerId(e);
-        // }
-        // this.__onMouseDown(e);
-      },
-      
-      /**
+      this.__onMouseDown(e);
+      this._resetTransformEventData();
+      var canvasElement = this.upperCanvasEl,
+          eventTypePrefix = this._getEventPrefix();
+      addListener(fabric.document, 'touchend', this._onTouchEnd, addEventOptions);
+      addListener(fabric.document, 'touchmove', this._onMouseMove, addEventOptions);
+      // Unbind mousedown to prevent double triggers from touch devices
+      removeListener(canvasElement, eventTypePrefix + 'down', this._onMouseDown);
+    },
+
+    /**
      * @private
      * @param {Event} e Event object fired on mousedown
      */
@@ -523,37 +499,26 @@
      * @param {Event} e Event object fired on mousedown
      */
     _onTouchEnd: function(e) {
-      console.log('====_onTouchEnd====', e)
-      // if (e.touches.length > 0) {
-      //   // if there are still touches stop here
-      //   return;
-      // }
-      // this.touchesMap.delete(e)
-      const {changedTouches} = e
-      for (let i = 0; i < changedTouches.length; i++) {
-        const touchEvent = changedTouches[i]
-        touchEvent.pointerType = e.type.indexOf('touch') > -1 ? 'touch' : 'mouse'
-        this.__onMouseUp(touchEvent);
-        this.touchesMap.delete(touchEvent.identifier)
+      if (e.touches.length > 0) {
+        // if there are still touches stop here
+        return;
       }
-      console.log('touchend this.touchesMap.size', this.touchesMap.size)
-      if (this.touchesMap.size === 0) {
-        this._resetTransformEventData();
-        this.mainTouchId = null;
-        var eventTypePrefix = this._getEventPrefix();
-        removeListener(fabric.document, 'touchend', this._onTouchEnd, addEventOptions);
-        removeListener(fabric.document, 'touchmove', this._onMouseMove, addEventOptions);
-        var _this = this;
-        if (this._willAddMouseDown) {
-          clearTimeout(this._willAddMouseDown);
-        }
-        this._willAddMouseDown = setTimeout(function() {
-          // Wait 400ms before rebinding mousedown to prevent double triggers
-          // from touch devices
-          addListener(_this.upperCanvasEl, eventTypePrefix + 'down', _this._onMouseDown);
-          _this._willAddMouseDown = 0;
-        }, 400);
+      this.__onMouseUp(e);
+      this._resetTransformEventData();
+      this.mainTouchId = null;
+      var eventTypePrefix = this._getEventPrefix();
+      removeListener(fabric.document, 'touchend', this._onTouchEnd, addEventOptions);
+      removeListener(fabric.document, 'touchmove', this._onMouseMove, addEventOptions);
+      var _this = this;
+      if (this._willAddMouseDown) {
+        clearTimeout(this._willAddMouseDown);
       }
+      this._willAddMouseDown = setTimeout(function() {
+        // Wait 400ms before rebinding mousedown to prevent double triggers
+        // from touch devices
+        addListener(_this.upperCanvasEl, eventTypePrefix + 'down', _this._onMouseDown);
+        _this._willAddMouseDown = 0;
+      }, 400);
     },
 
     /**
@@ -575,24 +540,12 @@
     /**
      * @private
      * @param {Event} e Event object fired on mousemove
-     * 
      */
     _onMouseMove: function (e) {
-      // console.log('====[enablePointerEvents]====', this.enablePointerEvents)
       var activeObject = this.getActiveObject();
       !this.allowTouchScrolling && (!activeObject || !activeObject.__isDragging)
         && e.preventDefault && e.preventDefault();
-
-      if (e.type === 'touchmove') { // touch事件
-        const {changedTouches} = e
-        for (let i = 0; i < changedTouches.length; i++) {
-          const touchEvent = changedTouches[i]
-          touchEvent.pointerType = e.type.indexOf('touch') > -1 ? 'touch' : 'mouse'
-          this.__onMouseMove(touchEvent);
-        }
-      } else {
-        this.__onMouseMove(e);
-      }
+      this.__onMouseMove(e);
     },
 
     /**
@@ -657,10 +610,15 @@
         this._resetTransformEventData();
         return;
       }
+      if (this.isTrackLineSelection) {
+        this.needClearTopContext = true
+        this.clearContext(this.contextTop);
+        this.needClearTopContext = false
+      }
 
-      if (this.isDrawingMode && this._isCurrentlyDrawing) {
+      if (this.isDrawingMode && this._isCurrentlyDrawing ) {
         this._onMouseUpInDrawingMode(e);
-        return;
+        return
       }
 
       if (!this._isMainEvent(e)) {
@@ -719,6 +677,12 @@
       }
       else if (!isClick) {
         this.renderTop();
+      }
+      if (this.isTrackLineSelection) {
+        // this.needClearTopContext = true
+        // this.clearContext(this.contextTop);
+        this._trackSelectionPoints = []
+        // this.needClearTopContext = false
       }
     },
 
@@ -970,7 +934,7 @@
         var pointer = this.getPointer(e);
         this.freeDrawingBrush.onMouseMove(pointer, { e: e, pointer: pointer });
       }
-      this.setCursor(this.freeDrawingCursor);
+      // this.setCursor(this.freeDrawingCursor);
       this._handleEvent(e, 'move');
     },
 
@@ -980,11 +944,7 @@
      */
     _onMouseUpInDrawingMode: function(e) {
       var pointer = this.getPointer(e);
-      if (e.pointerType === 'touch') {
-        this.freeDrawingBrush.onMouseUp({ e: e, pointer: pointer });
-      } else {
-        this._isCurrentlyDrawing = this.freeDrawingBrush.onMouseUp({ e: e, pointer: pointer });
-      }
+      this._isCurrentlyDrawing = this.freeDrawingBrush.onMouseUp({ e: e, pointer: pointer });
       this._handleEvent(e, 'up');
     },
 
@@ -1020,9 +980,9 @@
         return;
       }
 
-      // if (!this._isMainEvent(e)) {
-      //   return;
-      // }
+      if (!this._isMainEvent(e)) {
+        return;
+      }
 
       // ignore if some object is being transformed at this moment
       if (this._currentTransform) {
@@ -1041,20 +1001,35 @@
         this._handleGrouping(e, target);
         target = this._activeObject;
       }
-
-      if (this.selection && (!target ||
+      console.log('isTrackLineSelection mousedown', target == this._activeObject)
+      if (this.selection && this.isTrackLineSelection) {
+        this._groupSelector = {
+          ex: this._absolutePointer.x,
+          ey: this._absolutePointer.y,
+          top: 0,
+          left: 0,
+          currentPoint: {x: this._absolutePointer.x, y: this._absolutePointer.y},
+          type: 'mousedown'
+        };
+        this.renderTop();
+      } else if (this.selection && (!target ||
         (!target.selectable && !target.isEditing && target !== this._activeObject))) {
         this._groupSelector = {
           ex: this._absolutePointer.x,
           ey: this._absolutePointer.y,
           top: 0,
-          left: 0
+          left: 0,
+          currentPoint: {x: this._absolutePointer.x, y: this._absolutePointer.y},
+          type: 'mousedown'
         };
+        // if (this.isTrackLineSelection) {
+        //   this.renderTop();
+        // }
       }
 
       if (target) {
         var alreadySelected = target === this._activeObject;
-        if (target.selectable && target.activeOn === 'down') {
+        if (target.selectable && target.activeOn === 'down' && !this.isTrackLineSelection) {
           this.setActiveObject(target, e);
         }
         var corner = target._findTargetCorner(
@@ -1070,6 +1045,18 @@
           if (mouseDownHandler) {
             mouseDownHandler(e, this._currentTransform, pointer.x, pointer.y);
           }
+        } else {
+          // if (this.isTrackLineSelection) {
+          //   this.selection = false
+          //   this.isDrawingMode = true
+          //   // 轨迹选中
+          //   this.freeDrawingBrush = new window.fabric.TrackBrush(this);
+          //   this.freeDrawingBrush.width = 2;
+          //   this.freeDrawingBrush.color = "#ff0000";
+          //   this.freeDrawingBrush.strokeDashArray = [2, 5];
+          //   this.setImgCursor("./Broom.png");
+          //   // 痕迹选择标识
+          // }
         }
       }
       var invalidate = shouldRender || shouldGroup;
@@ -1150,6 +1137,8 @@
 
         groupSelector.left = pointer.x - groupSelector.ex;
         groupSelector.top = pointer.y - groupSelector.ey;
+        groupSelector.currentPoint = {x: pointer.x, y: pointer.y}
+        groupSelector.type = 'mousemove'
 
         this.renderTop();
       }

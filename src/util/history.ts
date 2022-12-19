@@ -1,4 +1,5 @@
 import { fabric } from "../../HEADER";
+import { getSyncOptions } from './index';
 
 (function() {
     interface snapshot {
@@ -87,6 +88,10 @@ import { fabric } from "../../HEADER";
                 snapshot.type = 'recoverClear'
             } else if (snapshot.type === 'recoverClear') {
                 snapshot.type = 'clear'
+            } else if (snapshot.type === 'eraser') {
+                snapshot.type = 'recoverEraser'
+            } else if (snapshot.type === 'recoverEraser') {
+                snapshot.type = 'eraser'
             }
 
             // 修改 反向操作 current -> original
@@ -140,6 +145,10 @@ import { fabric } from "../../HEADER";
                 snapshot.type = 'recoverClear'
             } else if (snapshot.type === 'recoverClear') {
                 snapshot.type = 'clear'
+            } else if (snapshot.type === 'eraser') {
+                snapshot.type = 'recoverEraser'
+            } else if (snapshot.type === 'recoverEraser') {
+                snapshot.type = 'eraser'
             }
 
             // 反向操作 original -> current
@@ -242,6 +251,12 @@ import { fabric } from "../../HEADER";
                 case 'recoverClear':
                     this.__recoverClearCanvas(data, sync)
                     break
+                case 'eraser':
+                    this.__addEraser(data, sync)
+                    break
+                case 'recoverEraser':
+                    this.__removeEraser(data, sync)
+                    break
                 case 'bgColor':
                     this.__setBackgroundColor(data)
                     break
@@ -283,7 +298,7 @@ import { fabric } from "../../HEADER";
             objects?.forEach(obj => {
                 const index = this.fCanvas.getObjects().findIndex((i: any) => i.qn.oid === obj.qn.oid)
                 if (index > -1) {
-                    const ratioObject = this._getRatioObject(obj.current)
+                    const ratioObject = this._getRatioObject(Object.assign({}, obj.current, {qn:obj.qn}))
                     this.fCanvas.item(index).setOptions(ratioObject)
                     this.fCanvas.item(index).setCoords()
 
@@ -336,6 +351,41 @@ import { fabric } from "../../HEADER";
                 this.fCanvas.loadFromJSON(json)
                 this.fCanvas.requestRenderAll()
             }
+        }
+
+        // 添加橡皮擦
+        async __addEraser (data: snapshot, sync: boolean){
+            const {objects} = data
+            objects?.forEach((obj:any) => {
+                if (obj) {
+                    window.fabric.EraserBrush.prototype._renderEraserByPath.call(
+                        window.fabric.EraserBrush.prototype,
+                        this.fCanvas,
+                        obj
+                      );
+                    const syncOptions = getSyncOptions(obj)
+                    console.log('__addEraser:', obj)
+                    fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "ae", epid: obj.qn.oid, options: syncOptions })
+                }
+            })
+            this.fCanvas.requestRenderAll()
+        }
+
+        // 删除橡皮擦轨迹
+        async __removeEraser(data: snapshot, sync: boolean) {
+            const {objects} = data
+            objects?.forEach((eraserPath:any) => {
+                window.fabric.EraserBrush.prototype._removeEraserByPath.call(
+                    window.fabric.EraserBrush.prototype,
+                    this.fCanvas,
+                    eraserPath
+                  );
+                const epid = eraserPath.qn.oid
+                eraserPath.qn.t = 're'
+                // fabric.util.socket && fabric.util.socket.draw(Object.assign({},{epid}, {qn: eraserPath.qn}))
+                fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "re", epid })
+            })
+            this.fCanvas.requestRenderAll();
         }
 
         // 设置背景色

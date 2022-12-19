@@ -119,9 +119,29 @@ import { Point } from '../point.class';
      */
     _groupSelectedObjects: function (e) {
 
-      var group = this._collectObjects(e),
+      var group = [],
           aGroup;
+      if (this.isTrackLineSelection) {
+        var correction = this.width / 1000;
+        const pathData = fabric.util.getSmoothPathFromPoints(this._trackSelectionPoints, correction, false);
+        const  path = this._createPath(pathData);
 
+        //  needed for `intersectsWithObject`
+        path.setCoords();
+        path.calcTransformMatrix()
+        const selectObjects = this._objects.filter((obj) => {
+          console.log('形状相交：intersection', path, obj.intersectsWithObject(path, true, true))
+          if (obj.qn.t === 'path') {
+            return this.checkPathIntersect(path, obj)
+          } else {
+            return obj.intersectsWithObject(path, true, true)
+          }
+        })
+        console.log('check 相交', selectObjects)
+        group = selectObjects
+      } else {
+        group = this._collectObjects(e)
+      }
       // do not create group for 1 element only
       if (group.length === 1) {
         this.setActiveObject(group[0], e);
@@ -132,6 +152,12 @@ import { Point } from '../point.class';
         });
         this.setActiveObject(aGroup, e);
       }
+
+      // this.needClearTopContext = true
+      // this.clearContext(this.contextTop);
+      // this._trackSelectionPoints = []
+      // this.needClearTopContext = false
+      this.contextTop.closePath();
     },
 
     /**
@@ -179,10 +205,56 @@ import { Point } from '../point.class';
     },
 
     /**
+       * 检查两个path相交
+       * @param path1 
+       * @param path2 
+       */
+     checkPathIntersect(path1, path2) {
+      let isIntersect = false
+      for (let i = 0; i < path1.path.length; i++) {
+          const item1 = JSON.parse(JSON.stringify(path1.path[i]))
+          const point1 = item1.splice(1,3)
+          for (let j = 0; j < path2.path.length; j++) {
+              const item2 = JSON.parse(JSON.stringify(path2.path[j]))
+              const point2 = item2.splice(1,3)
+              console.log(Math.abs(point1[0] - point2[0]), Math.abs(point1[1] - point2[1]))
+              if (Math.abs(point1[0] - point2[0]) < 20 && Math.abs(point1[1] - point2[1]) < 20) {
+                  isIntersect = true
+                  break
+              }
+          }
+      }
+      console.log('====isIntersect====', isIntersect)
+      return isIntersect
+    },
+
+    /**
+     * 根据pathData 创建fabric.Path
+     * @returns 
+     */
+    _createPath: function (pathData) {
+      var path = new fabric.Path(pathData, {
+        fill: null,
+        stroke: this._trackLineColor,
+        strokeWidth: this._trackLineWidth,
+        strokeLineCap: this.strokeLineCap,
+        strokeMiterLimit: this.strokeMiterLimit,
+        strokeLineJoin: this.strokeLineJoin,
+        strokeDashArray: this.strokeDashArray,
+      });
+      if (this.shadow) {
+        this.shadow.affectStroke = true;
+        path.shadow = new fabric.Shadow(this.shadow);
+      }
+
+      return path;
+    },
+
+    /**
      * @private
      */
     _maybeGroupObjects: function(e) {
-      if (this.selection && this._groupSelector) {
+      if ((this.selection && this._groupSelector)) {
         this._groupSelectedObjects(e);
       }
       this.setCursor(this.defaultCursor);

@@ -753,7 +753,7 @@ import { Point } from '../point.class';
    * @param {number} [correction] Apply a correction to the path (usually we use `width / 1000`). If value is undefined 0 is used as the correction value.
    * @return {(string|number)[][]} An array of SVG path commands
    */
-  function getSmoothPathFromPoints(points, correction) {
+  function getSmoothPathFromPoints(points, correction, sync=true) {
     var path = [], i,
         p1 = new Point(points[0].x, points[0].y),
         p2 = new Point(points[1].x, points[1].y),
@@ -766,8 +766,7 @@ import { Point } from '../point.class';
     }
     path.push(['M', p1.x - multSignX * correction, p1.y - multSignY * correction]);
     // 生成path的时候socket同步
-    console.log('eraser point', ['M', p1.x - multSignX * correction, p1.y - multSignY * correction])
-    fabric.util.socket && fabric.util.socket.draw({qn: fabric.freeDrawObject, index: 0, path: ['M', p1.x - multSignX * correction, p1.y - multSignY * correction]});
+    sync && fabric.util.socket && fabric.util.socket.draw({qn: fabric.freeDrawObject, index: 0, path: ['M', p1.x - multSignX * correction, p1.y - multSignY * correction]});
     for (i = 1; i < len; i++) {
       if (!p1.eq(p2)) {
         var midPoint = p1.midPointFrom(p2);
@@ -775,8 +774,7 @@ import { Point } from '../point.class';
         // midpoint is our endpoint
         // start point is p(i-1) value.
         path.push(['Q', p1.x, p1.y, midPoint.x, midPoint.y]);
-        console.log('eraser point', ['Q', p1.x, p1.y, midPoint.x, midPoint.y])
-        fabric.util.socket && fabric.util.socket.draw({qn: fabric.freeDrawObject, index: i, path: ['Q', p1.x, p1.y, midPoint.x, midPoint.y]});
+        sync && fabric.util.socket && fabric.util.socket.draw({qn: fabric.freeDrawObject, index: i, path: ['Q', p1.x, p1.y, midPoint.x, midPoint.y]});
       }
       p1 = points[i];
       if ((i + 1) < points.length) {
@@ -788,8 +786,7 @@ import { Point } from '../point.class';
       multSignY = p1.y > points[i - 2].y ? 1 : p1.y === points[i - 2].y ? 0 : -1;
     }
     path.push(['L', p1.x + multSignX * correction, p1.y + multSignY * correction]);
-    console.log('eraser point', ['L', p1.x + multSignX * correction, p1.y + multSignY * correction])
-    fabric.util.socket && fabric.util.socket.draw({qn: fabric.freeDrawObject, index: points.length + 1, path: ['L', p1.x + multSignX * correction, p1.y + multSignY * correction]});
+    sync && fabric.util.socket && fabric.util.socket.draw({qn: fabric.freeDrawObject, index: points.length + 1, path: ['L', p1.x + multSignX * correction, p1.y + multSignY * correction]});
     return path;
   }
   /**

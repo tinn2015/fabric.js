@@ -215,9 +215,9 @@ import { Point } from '../point.class';
      * @param {Array} points Array of points
      * @return {(string|number)[][]} SVG path commands
      */
-    convertPointsToSVGPath: function (points) {
+    convertPointsToSVGPath: function (points, sync=true) {
       var correction = this.width / 1000;
-      return fabric.util.getSmoothPathFromPoints(points, correction);
+      return fabric.util.getSmoothPathFromPoints(points, correction, sync);
     },
 
     /**

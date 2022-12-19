@@ -533,8 +533,13 @@ import { Point } from './point.class';
       }
       // we render the top context - last object
       if (this.selection && this._groupSelector) {
-        this._drawSelection(ctx);
-        this.contextTopDirty = true;
+        if (this.isTrackLineSelection) {
+          this.contextTopDirty = true;
+          this._drawTrackLineSelection(ctx);
+        } else {
+          this._drawSelection(ctx);
+          this.contextTopDirty = true;
+        }
       }
       ctx.restore();
     },
@@ -547,7 +552,9 @@ import { Point } from './point.class';
      */
     renderTop: function () {
       var ctx = this.contextTop;
-      this.clearContext(ctx);
+      if (!this.isTrackLineSelection) {
+        this.clearContext(ctx);
+      }
       this.renderTopLayer(ctx);
       this.fire('after:render');
       return this;
@@ -786,6 +793,10 @@ import { Point } from './point.class';
       this.upperCanvasEl.style.cursor = value;
     },
 
+    setImgCursor: function (value) {
+      this.upperCanvasEl.style.cursor = `url('${value}'), pointer`
+    },
+
     /**
      * @private
      * @param {CanvasRenderingContext2D} ctx to draw the selection on
@@ -801,7 +812,8 @@ import { Point } from './point.class';
           maxX = Math.max(start.x, extent.x),
           maxY = Math.max(start.y, extent.y),
           strokeOffset = this.selectionLineWidth / 2;
-
+      // render selection
+      console.log("render selection", selector)
       // qn modified
       // [bug] dont draw selection dot
       if (maxX - minX < 5 || maxY - minY < 5) return
@@ -824,6 +836,49 @@ import { Point } from './point.class';
       // selection border
       fabric.Object.prototype._setLineDash.call(this, ctx, this.selectionDashArray);
       ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
+    },
+
+    /**
+     * 轨迹选择
+     */
+    _trackSelectionPoints: [],
+    _trackLineOldEnd: [],
+    _trackLineColor: '#ff0000',
+    _trackLineWidth: 2,
+    _drawTrackLineSelection: function (ctx) {
+      const selector = this._groupSelector
+      const {type, currentPoint} = selector
+      console.log('selector type', type)
+      const point = new window.fabric.Point(currentPoint.x, currentPoint.y)
+      if (type === 'mousedown') {
+        console.log('========this._trackSelectionPoints=======', this._trackSelectionPoints)
+        ctx.moveTo(point.x, point.y);
+        ctx.beginPath();
+        this._trackSelectionPoints.push(point)
+        return
+      }
+      if (type === 'mousemove') {
+        this._trackSelectionPoints.push(point)
+        console.log('_trackSelectionPoints', this._trackSelectionPoints)
+        const length = this._trackSelectionPoints.length
+        if (this._trackSelectionPoints.length > 2) {
+          if (this._trackLineOldEnd.length) {
+            ctx.beginPath();
+            ctx.moveTo(this._trackLineOldEnd.x, this._trackLineOldEnd.y);
+          } else {
+            this._trackLineOldEnd = this._drawTrackLineSegment(ctx, this._trackSelectionPoints[length - 2], this._trackSelectionPoints[length - 1], true)
+            ctx.stroke();
+            ctx.restore();
+            ctx.strokeStyle = this._trackLineColor
+            ctx.lineWidth = this._trackLineWidth
+          }
+        }
+      }
+    },
+    _drawTrackLineSegment: function (ctx, p1, p2) {
+      const midPoint = p1.midPointFrom(p2);
+      ctx.quadraticCurveTo(p1.x, p1.y, midPoint.x, midPoint.y);
+      return midPoint;
     },
 
     /**

@@ -239,7 +239,6 @@ import { Point } from '../point.class';
         this.getCoords(absolute, calculate),
         other.getCoords(absolute, calculate)
       );
-
       return intersection.status === 'Intersection'
         || other.isContainedWithinObject(this, absolute, calculate)
         || this.isContainedWithinObject(other, absolute, calculate);

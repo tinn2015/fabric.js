@@ -786,7 +786,6 @@ import { getSyncOptions } from './util/index';
       } else {
         ctx.clearRect(0, 0, this.width, this.height);
       }
-      console.log('====clearContext====', this.needClearTopContext, ctx)
       return this;
     },
 

@@ -1076,7 +1076,8 @@ import { Point } from '../point.class';
       }
       else {
         this._removeCacheCanvas();
-        this.dirty = false;
+        // this.dirty = false;
+        this.dirty = true;
         this.drawObject(ctx);
         if (this.objectCaching && this.statefullCache) {
           this.saveState({ propertySet: 'cacheProperties' });
@@ -1107,7 +1108,8 @@ import { Point } from '../point.class';
       }
       else {
         this._removeCacheCanvas();
-        this.dirty = false;
+        // this.dirty = false;
+        this.dirty = true;
         this.drawObject(ctx);
         if (this.objectCaching && this.statefullCache) {
           this.saveState({ propertySet: 'cacheProperties' });
@@ -1126,7 +1128,12 @@ import { Point } from '../point.class';
       if (this.isCacheDirty()) {
         this.statefullCache && this.saveState({ propertySet: 'cacheProperties' });
         this.drawObject(this._cacheContext, options.forClipping);
-        this.dirty = false;
+        if (this.qn && this.qn.t === 'eraser') {
+          // eraser 的 undo redo 需要及时更新
+          this.dirty = true
+        } else {
+          this.dirty = false;
+        }
       }
     },
 

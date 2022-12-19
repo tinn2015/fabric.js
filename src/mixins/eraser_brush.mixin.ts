@@ -685,6 +685,7 @@ import { getSyncOptions } from '../util/index';
             );
             fabric.util.applyTransformToObject(path, desiredTransform);
             eraser.add(path);
+            console.log('====addEraserPath _addPathToObjectEraser====', eraser, path)
             obj.set('dirty', true);
             obj.fire('erasing:end', {
               path: path
@@ -693,6 +694,80 @@ import { getSyncOptions } from '../util/index';
               (obj.group ? context.subTargets : context.targets).push(obj);
               //context.paths.set(obj, path);
             }
+            return path;
+          });
+      },
+      
+      // 删除指定path
+      _removePathToObjectEraser: function (obj, path, context) {
+        var _this = this;
+        //  object is collection, i.e group
+        // if (obj.forEachObject && obj.erasable === 'deep') {
+        //   var targets = obj._objects.filter(function (_obj) {
+        //     return _obj.erasable;
+        //   });
+        //   if (targets.length > 0 && obj.clipPath) {
+        //     return this.clonePathWithClipPath(path, obj)
+        //       .then(function (_path) {
+        //         return Promise.all(targets.map(function (_obj) {
+        //           return _this._addPathToObjectEraser(_obj, _path, context);
+        //         }));
+        //       });
+        //   }
+        //   else if (targets.length > 0) {
+        //     return Promise.all(targets.map(function (_obj) {
+        //       return _this._addPathToObjectEraser(_obj, path, context);
+        //     }));
+        //   }
+        //   return;
+        // }
+        //  prepare eraser
+        var eraser = obj.eraser;
+        // if (!eraser) {
+        //   // qn modified
+        //   // 新建eraser group 添加 标识
+        //   eraser = new fabric.Eraser(null, {type: 'eraser'});
+        //   obj.eraser = eraser;
+        // }
+        //  clone and add path
+        // const index = eraser._objects.findIndex(obj => obj.qn.oid === path.qn.oid)
+        // if (index > -1) {
+        //   eraser._objects.splice(index, 1);
+        //   if (!eraser._objects.length) {
+        //     delete obj.eraser
+        //   }
+        //   obj.set('dirty', true);
+        //   }
+        // return Promise.resolve(path)
+        return path.clone()
+          .then(function (path) {
+            // http://fabricjs.com/using-transformations
+            var desiredTransform = fabric.util.multiplyTransformMatrices(
+              fabric.util.invertTransform(
+                obj.calcTransformMatrix()
+              ),
+              path.calcTransformMatrix()
+            );
+            fabric.util.applyTransformToObject(path, desiredTransform);
+            
+            const index = eraser._objects.findIndex(obj => obj.qn.oid === path.qn.oid)
+            console.log('====removeEraserPath index====', index)
+            if (index > -1) {
+             eraser._objects.splice(index, 1);
+            //   if (!eraser._objects.length) {
+            //     delete obj.eraser
+            //  }
+             console.log('====removeEraserPath====', eraser)
+              obj.set('dirty', true);
+            }
+
+            // obj.fire('erasing:end', {
+            //   path: path
+            // });
+            // if (context) {
+            //   (obj.group ? context.subTargets : context.targets).push(obj);
+            //   //context.paths.set(obj, path);
+            // }
             return path;
           });
       },
@@ -732,9 +807,9 @@ import { getSyncOptions } from '../util/index';
       _finalizeAndAddPath: function () {
         var ctx = this.canvas.contextTop, canvas = this.canvas;
         ctx.closePath();
-        if (this.decimate) {
-          this._points = this.decimatePoints(this._points, this.decimate);
-        }
+        // if (this.decimate) {
+        //   this._points = this.decimatePoints(this._points, this.decimate);
+        // }
 
         // clear
         canvas.clearContext(canvas.contextTop);
@@ -755,13 +830,20 @@ import { getSyncOptions } from '../util/index';
           canvas.requestRenderAll();
           return;
         }
-
+        // 生成当前path的qn, 这是一个全局对象
+        fabric.freeDrawObject.t = 'eraser'
         var path = this.createPath(pathData);
 
         //  needed for `intersectsWithObject`
         path.setCoords();
         //  commense event sequence
         canvas.fire('before:path:created', { path: path });
+
+        // 添加到历史栈
+        fabric.util.history && fabric.util.history.push({
+          type: 'eraser',
+          objects: [path]
+        })
 
         // finalize erasing
         var _this = this;
@@ -831,7 +913,8 @@ import { getSyncOptions } from '../util/index';
           drawables: {}
         };
         var tasks = canvas._objects.map(function (obj) {
-          return obj.erasable && obj.intersectsWithObject(path, true, true) &&
+          console.log('====addEraserPath _renderEraserByPath====', obj.intersectsWithObject(path, true, true))
+          return obj.erasable &&
             _this._addPathToObjectEraser(obj, path, context);
         });
         tasks.push(_this.applyEraserToCanvas(path, context));
@@ -863,6 +946,76 @@ import { getSyncOptions } from '../util/index';
             // fire event 'path' created
             canvas.fire('path:created', { path: path });
           });
+      },
+
+      /**
+       * 根据轨迹恢复被删除部分
+       * @param canvas 
+       * @param path 
+       * @returns 
+       */
+      _removeEraserByPath: async function (canvas, path) {
+        this.canvas = canvas
+
+        // path.globalCompositeOperation = 'source-over';
+        
+        this._isErasing = true;
+
+        //  needed for `intersectsWithObject`
+        path.setCoords();
+        //  commense event sequence
+        // canvas.fire('before:path:created', { path: path });
+
+        // finalize erasing
+        var _this = this;
+        var context = {
+          targets: [],
+          subTargets: [],
+          //paths: new Map(),
+          drawables: {}
+        };
+        console.log('====removeEraserPath _removeEraserByPath====', canvas._objects, path)
+        for (let i = 0; i < canvas._objects.length; i++) {
+          const obj = canvas._objects[i]
+          console.log('====removeEraserPath intersectsWithObject====', obj.erasable)
+          if (obj.erasable) {
+            await _this._removePathToObjectEraser(obj, path, context);
+          }
+        }
+        // canvas._objects.forEach(function (obj) {
+        //   obj.erasable && obj.intersectsWithObject(path, true, true) &&
+        //     _this._removePathToObjectEraser(obj, path, context);
+        // });
+        // tasks.push(_this.applyEraserToCanvas(path, context));
+        canvas.requestRenderAll();
+        // return Promise.all(tasks)
+        //   .then(function () {
+        //     //  fire erasing:end
+        //     // canvas.fire('erasing:end', Object.assign(context, {
+        //     //   path: path
+        //     // }));
+
+        //     // console.log('eraser:end', Object.assign(context, {
+        //     //   path: path
+        //     // }))
+
+        //     // 同步当前橡皮擦轨迹
+        //     // 同步新增object
+        //     // const options = getSyncOptions(path)
+        //     // options.qn.t = 'eraser'
+        //     // options.qn.oids = context.targets.map(i => i.qn.oid)
+        //     // if (path.qn.sync) {
+        //     //   console.log('========== sync ===========', options)
+        //     //   fabric.util.socket && fabric.util.socket.draw(options)
+        //     // }
+
+        //     _this._isErasing = false;
+        //     canvas.requestRenderAll();
+        //     _this._resetShadow();
+
+        //     // fire event 'path' created
+        //     // canvas.fire('path:created', { path: path });
+        //   });
       }
     }
   );
