@@ -850,6 +850,11 @@ import { Point } from './point.class';
       const {type, currentPoint} = selector
       console.log('selector type', type)
       const point = new window.fabric.Point(currentPoint.x, currentPoint.y)
+      if (type === 'isActiveTarget') {
+        ctx.moveTo(point.x, point.y);
+        ctx.beginPath();
+        return
+      }
       if (type === 'mousedown') {
         console.log('========this._trackSelectionPoints=======', this._trackSelectionPoints)
         ctx.moveTo(point.x, point.y);

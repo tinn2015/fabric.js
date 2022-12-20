@@ -745,6 +745,14 @@ import { getSyncOptions } from './util/index';
           fabric._shapeOption = options // 保存shape的参数, 然后在mouseup的时候进行协同
         }
       }
+
+      if (obj.qn.t === 'path' || obj.qn.t === 'image') {
+        console.log('history push,添加历史栈')
+        !obj.qn.noHistoryStack && fabric.util.history && fabric.util.history.push({
+          type: 'add',
+          objects: [obj]
+        })
+      }
       this.fire('object:added', { target: obj });
       obj.fire('added', { target: this });
     },

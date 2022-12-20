@@ -679,10 +679,10 @@
         this.renderTop();
       }
       if (this.isTrackLineSelection) {
-        // this.needClearTopContext = true
-        // this.clearContext(this.contextTop);
+        this.needClearTopContext = true
+        this.clearContext(this.contextTop);
         this._trackSelectionPoints = []
-        // this.needClearTopContext = false
+        this.needClearTopContext = false
       }
     },
 
@@ -1003,13 +1003,14 @@
       }
       console.log('isTrackLineSelection mousedown', target == this._activeObject)
       if (this.selection && this.isTrackLineSelection) {
+        const type = target == this._activeObject ? 'isActiveTarget' : 'mousedown'
         this._groupSelector = {
           ex: this._absolutePointer.x,
           ey: this._absolutePointer.y,
           top: 0,
           left: 0,
           currentPoint: {x: this._absolutePointer.x, y: this._absolutePointer.y},
-          type: 'mousedown'
+          type: type
         };
         this.renderTop();
       } else if (this.selection && (!target ||
@@ -1132,7 +1133,7 @@
       var groupSelector = this._groupSelector;
 
       // We initially clicked in an empty area, so we draw a box for multiple selection
-      if (groupSelector) {
+      if (groupSelector && this._activeObject !== this.findTarget(e)) {
         pointer = this._absolutePointer;
 
         groupSelector.left = pointer.x - groupSelector.ex;

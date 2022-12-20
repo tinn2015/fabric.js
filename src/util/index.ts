@@ -181,5 +181,8 @@ export const getSyncOptions = (obj: any) => {
         options[key] = obj[key]
     }
     })
+    if (obj.type === 'image') {
+        obj.qn.src = obj.getSrc()
+    }
     return options
 }

@@ -531,12 +531,12 @@ import {isNumber} from '../util/index'
       this._resetShadow();
       this.canvas.clearContext(this.canvas.contextTop);
 
-      console.log('history push, shape 添加历史栈')
-      // path 添加历史栈
-      !path.qn.noHistoryStack && fabric.util.history && fabric.util.history.push({
-        type: 'add',
-        objects: [path]
-      })
+      // console.log('history push, shape 添加历史栈')
+      // // path 添加历史栈
+      // !path.qn.noHistoryStack && fabric.util.history && fabric.util.history.push({
+      //   type: 'add',
+      //   objects: [path]
+      // })
       // fire event 'path' created
       this.canvas.fire('path:created', { path: path });
     },
