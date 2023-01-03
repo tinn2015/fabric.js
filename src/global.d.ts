@@ -1,4 +1,4 @@
 declare interface Window {
-    fabric: any
+    fabric: any,
     _fCanvas: any
 }

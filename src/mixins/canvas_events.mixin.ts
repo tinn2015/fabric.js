@@ -743,7 +743,7 @@
         // shape 协同
         console.log('mouseup shape', fabric._shapeOption, target)
         const fabricItemParams = fabric._shapeOption
-        if (fabricItemParams) {
+        if (options.currentTarget && ['rect', 'circle', 'triangle', 'line'].includes(options.currentTarget.type) && fabricItemParams) {
           console.log('shape options', fabricItemParams)
           fabricItemParams.qn.sync = true
           fabric.util.socket && fabric.util.socket.draw(fabricItemParams)

@@ -41,5 +41,6 @@
 
     window.fabric.util.genQn = genQn;
 	window.fabric.util.use = use
+	window.fabric.util.genUuid = guid
   })();
   
