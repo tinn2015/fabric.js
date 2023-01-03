@@ -62,6 +62,7 @@ import { fabric } from "../../HEADER";
          */
         deleteStackByPageId (pageId: number) {
             this.stackMap.delete(pageId)
+            this.uiRender && this.uiRender()
         }
 
         /**
