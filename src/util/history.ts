@@ -6,6 +6,7 @@ import { fabric } from "../../HEADER";
         props?: Record<string, any>
         action?: string
         objects?: any[],
+        clearId?: string, // 每次清除会生成一个clearId, recover的时候会用到
         current?: Record<string, any>,
         original?: Record<string, any>
         // canvasJson?: Record<string, any> // 整个画布json
@@ -189,7 +190,7 @@ import { fabric } from "../../HEADER";
             const removeStoreIds = []
             for (let i = 0; i < curStack.stack.length; i++) {
                 const item = curStack.stack[i]
-                if (item && item.type === 'remove') {
+                if (item && (item.type === 'remove' || item.type === 'recoverClear')) {
                     curStack.stack.splice(i, 1)
                     if (item.objects && item.objects.length) {
                         const oids = item.objects.map(obj => obj.qn.oid)
@@ -201,6 +202,7 @@ import { fabric } from "../../HEADER";
             }
             if (removeStoreIds.length) {
                 // 通知remove storepath
+                console.log('remove store Path', removeStoreIds)
                 fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "rs", oids: removeStoreIds})
             }
             console.log('====history push current stack====',curStack.stack.length, curStack.stack)
@@ -258,6 +260,7 @@ import { fabric } from "../../HEADER";
             objects?.forEach(object => {
                 object.qn.sync = sync
                 object.qn.noHistoryStack = true
+                console.log('__objectRemove', object)
                 this.fCanvas.remove(object);
             })
             this.fCanvas.requestRenderAll()
@@ -295,19 +298,20 @@ import { fabric } from "../../HEADER";
         // 这里应该改为 clear recovery
         async __clearCanvas(data: snapshot, sync: boolean) {
             console.log('__clearCanvas', data, sync)
-            const {objects} = data
+            const {objects, clearId} = data
             const curObjects = this.fCanvas.getObjects()
             if (objects) {
                 const removeObjIds = objects.map(obj => obj.qn.oid)
                 const removeObjects = curObjects.filter((obj: any) => {
                     if (removeObjIds.includes(obj.qn.oid)) {
                         obj.qn.noHistoryStack = true
-                        // obj.qn.sync = false
+                        obj.qn.sync = false
                         return true
                     }
                     return false
                 })
                 this.fCanvas.remove(...removeObjects)
+                fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "clear", oids: removeObjIds, cid: clearId})
             }
             // console.log('__clearCanvas', current)
             // if (current && current.objects.length) {
@@ -324,14 +328,18 @@ import { fabric } from "../../HEADER";
         // 恢复被清除的内容
         async __recoverClearCanvas (data: snapshot, sync: boolean) {
             console.log('__recoverClearCanvas', data, sync)
-            const {objects} = data
+            const {objects, clearId} = data
+            const oids: any[] = []
             if (objects) {
-                // objects.forEach(obj => obj.qn.sync = false)
-                console.log('__clearCanvas', objects)
+                objects.forEach(obj => {
+                    obj.qn.sync = false
+                    oids.push(obj.qn.oid)
+                })
                 const json = this.fCanvas.toJSON()
                 json.objects.push(...objects) 
                 this.fCanvas.loadFromJSON(json)
                 this.fCanvas.requestRenderAll()
+                fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "rc", oids, cid: clearId})
             }
         }
 

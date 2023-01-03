@@ -1354,14 +1354,16 @@ import { Point } from './point.class';
 
       // qn modified
       // 清除画布
-      if (sync) {
-        fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "clear" })
-
-        const canvasJson = this.toJSON()
+      const canvasJson = this.toJSON()
+      if (sync && canvasJson.objects.length) {
+        const clearId = window.fabric.util.genUuid()
+        const oids = canvasJson.objects.map(i => i.qn.oid)
+        fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "clear", oids, cid: clearId})
         // 添加历史栈
         fabric.util.history && fabric.util.history.push({
           type: 'clear',
-          objects: canvasJson.objects
+          objects: canvasJson.objects,
+          clearId
         })
       }
       fabric._tempIsCleared = true

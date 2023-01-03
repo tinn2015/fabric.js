@@ -672,9 +672,6 @@ import { removeFromArray } from './util/internals';
      * @chainable
      */
     add: function () {
-      if (arguments.length && arguments[0].qn && arguments[0].qn.sync) {
-        this.needClearTopContext = true
-      }
       fabric.Collection.add.call(this, arguments, this._onObjectAdded);
       console.log('canvas add', arguments)
       
@@ -683,6 +680,9 @@ import { removeFromArray } from './util/internals';
         return this
       }
       arguments.length > 0 && this.renderOnAddRemove && this.requestRenderAll();
+      if (arguments.length && arguments[0].qn && arguments[0].qn.sync) {
+        this.needClearTopContext = true
+      }
       return this;
     },
 
@@ -741,6 +741,9 @@ import { removeFromArray } from './util/internals';
       })
       options.qn.t = obj.type
       if (obj.qn.sync) {
+        if (obj.type === 'path') {
+          options.qn.psize = obj.path.length
+        }
         console.log('========== sync ===========', options)
         fabric.util.socket && fabric.util.socket.draw(options)
       } else {
@@ -787,6 +790,7 @@ import { removeFromArray } from './util/internals';
       const ctxClassList = Array.from(ctx.canvas.classList)
       if (ctxClassList.includes('uppper-canvas')) {
         this.needClearTopContext && ctx.clearRect(0, 0, this.width, this.height);
+        // ctx.clearRect(0, 0, this.width, this.height);
         this.needClearTopContext = false
       } else {
         ctx.clearRect(0, 0, this.width, this.height);

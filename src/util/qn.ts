@@ -22,6 +22,8 @@
         const defaultQn =  {
 			cid: window.fabric.util.userId || guid(),
 			mid: window.fabric.util.userId || guid(),
+			w: window._fCanvas.getWidth(),
+			h: window._fCanvas.getHeight(),
 			oid: guid(),
 			sync: true
 		}
@@ -39,5 +41,6 @@
 
     window.fabric.util.genQn = genQn;
 	window.fabric.util.use = use
+	window.fabric.util.genUuid = guid
   })();
   
