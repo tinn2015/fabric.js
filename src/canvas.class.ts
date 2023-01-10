@@ -1,3 +1,4 @@
+/* eslint-disable no-var */
 //@ts-nocheck
 import { Point } from './point.class';
 
@@ -848,7 +849,6 @@ import { Point } from './point.class';
     _drawTrackLineSelection: function (ctx) {
       const selector = this._groupSelector
       const {type, currentPoint} = selector
-      console.log('selector type', type)
       const point = new window.fabric.Point(currentPoint.x, currentPoint.y)
       if (type === 'isActiveTarget') {
         ctx.moveTo(point.x, point.y);

@@ -1004,14 +1004,16 @@
       console.log('isTrackLineSelection mousedown', target == this._activeObject)
       if (this.selection && this.isTrackLineSelection) {
         const type = target == this._activeObject ? 'isActiveTarget' : 'mousedown'
-        this._groupSelector = {
-          ex: this._absolutePointer.x,
-          ey: this._absolutePointer.y,
-          top: 0,
-          left: 0,
-          currentPoint: {x: this._absolutePointer.x, y: this._absolutePointer.y},
-          type: type
-        };
+        if (target == null || target !== this._activeObject) {
+          this._groupSelector = {
+            ex: this._absolutePointer.x,
+            ey: this._absolutePointer.y,
+            top: 0,
+            left: 0,
+            currentPoint: {x: this._absolutePointer.x, y: this._absolutePointer.y},
+            type: type
+          };
+        }
         this.renderTop();
       } else if (this.selection && (!target ||
         (!target.selectable && !target.isEditing && target !== this._activeObject))) {
@@ -1133,7 +1135,7 @@
       var groupSelector = this._groupSelector;
 
       // We initially clicked in an empty area, so we draw a box for multiple selection
-      if (groupSelector && this._activeObject !== this.findTarget(e)) {
+      if (this.selection && this.isTrackLineSelection && groupSelector) {
         pointer = this._absolutePointer;
 
         groupSelector.left = pointer.x - groupSelector.ex;
@@ -1141,6 +1143,15 @@
         groupSelector.currentPoint = {x: pointer.x, y: pointer.y}
         groupSelector.type = 'mousemove'
 
+        this.renderTop();
+      } else if (groupSelector) { //groupSelector && this._activeObject !== this.findTarget(e)
+        console.log('roupSelector && this._activeObject !== this.findTarget(e)', groupSelector, this._activeObject, this.findTarget(e))
+        pointer = this._absolutePointer;
+
+        groupSelector.left = pointer.x - groupSelector.ex;
+        groupSelector.top = pointer.y - groupSelector.ey;
+        groupSelector.currentPoint = {x: pointer.x, y: pointer.y}
+        groupSelector.type = 'mousemove'
         this.renderTop();
       }
       else if (!this._currentTransform) {
