@@ -215,13 +215,13 @@ import { getSyncOptions } from './index';
                 console.log('remove store Path', removeStoreIds)
                 fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "rs", oids: removeStoreIds})
             }
-            console.log('====history push current stack====',curStack.stack.length, curStack.stack)
+            console.log('====history push====',data)
             curStack.stack.push(data)
-            if (!(window as any).historyPushNum) {
-                (window as any).historyPushNum = 1
-            } else {
-                (window as any).historyPushNum += 1
-            }
+            // if (!(window as any).historyPushNum) {
+            //     (window as any).historyPushNum = 1
+            // } else {
+            //     (window as any).historyPushNum += 1
+            // }
             curStack.currentIndex = curStack.stack.length - 1
             console.log(`history push pageId:${this.pages.currentPageId}, currentIndex:${curStack.currentIndex}, stack: ${curStack.stack.length}`)
             this._setCurrentStack(curStack)
@@ -329,8 +329,19 @@ import { getSyncOptions } from './index';
                     }
                     return false
                 })
-                this.fCanvas.remove(...removeObjects)
-                fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "clear", oids: removeObjIds, cid: clearId})
+                const eraserOids: any[] = []
+                removeObjects.forEach((obj: any) => {
+                    if (obj.eraser) {
+                        const eraserObjects = obj.eraser._objects || obj.eraser.objects
+                        eraserObjects.length && eraserObjects.forEach((j: any) => {
+                            if (!eraserOids.includes(j.qn.oid)) {
+                                eraserOids.push(j.qn.oid)
+                            }
+                        })
+                    }
+                })
+                await this.fCanvas.remove(...removeObjects)
+                fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "clear", oids: removeObjIds, eids: eraserOids, cid: clearId})
             }
             // console.log('__clearCanvas', current)
             // if (current && current.objects.length) {
@@ -349,16 +360,28 @@ import { getSyncOptions } from './index';
             console.log('__recoverClearCanvas', data, sync)
             const {objects, clearId} = data
             const oids: any[] = []
+            const eraserOids: any[] = []
             if (objects) {
                 objects.forEach(obj => {
                     obj.qn.sync = false
+                    obj.qn.noHistoryStack = true
                     oids.push(obj.qn.oid)
+                    if (obj.eraser) {
+                        obj.eraser._objects ? obj.eraser.objects = obj.eraser._objects : null
+                        const eraserObjects = obj.eraser.objects
+                        eraserObjects.length && eraserObjects.forEach((j: any) => {
+                            if (!eraserOids.includes(j.qn.oid)) {
+                                eraserOids.push(j.qn.oid)
+                            }
+                        })
+                    }
                 })
                 const json = this.fCanvas.toJSON()
                 json.objects.push(...objects) 
-                this.fCanvas.loadFromJSON(json)
-                this.fCanvas.requestRenderAll()
-                fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "rc", oids, cid: clearId})
+                console.log('__recoverClearCanvas json')
+                await this.fCanvas.loadFromJSON(JSON.parse(JSON.stringify(json)))
+                await this.fCanvas.requestRenderAll()
+                fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "rc", oids, cid: clearId, eids: eraserOids})
             }
         }
 

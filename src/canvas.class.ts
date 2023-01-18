@@ -856,7 +856,6 @@ import { Point } from './point.class';
         return
       }
       if (type === 'mousedown') {
-        console.log('========this._trackSelectionPoints=======', this._trackSelectionPoints)
         ctx.moveTo(point.x, point.y);
         ctx.beginPath();
         this._trackSelectionPoints.push(point)
@@ -864,7 +863,6 @@ import { Point } from './point.class';
       }
       if (type === 'mousemove') {
         this._trackSelectionPoints.push(point)
-        console.log('_trackSelectionPoints', this._trackSelectionPoints)
         const length = this._trackSelectionPoints.length
         if (this._trackSelectionPoints.length > 2) {
           if (this._trackLineOldEnd.length) {
@@ -1414,15 +1412,26 @@ import { Point } from './point.class';
 
       // qn modified
       // 清除画布
-      const canvasJson = this.toJSON()
-      if (sync && canvasJson.objects.length) {
+      const objects = this.getObjects()
+      if (sync && objects.length) {
         const clearId = window.fabric.util.genUuid()
-        const oids = canvasJson.objects.map(i => i.qn.oid)
-        fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "clear", oids, cid: clearId})
+        const oids = objects.map(i => i.qn.oid)
+        const eraserOids = []
+        objects.forEach(i => {
+          if (i.eraser && i.eraser._objects.length) {
+            i.eraser._objects.forEach(j => {
+              if (!eraserOids.includes(j.qn.oid)) {
+                eraserOids.push(j.qn.oid)
+              }
+            })
+          }
+        })
+        console.log('eraserOids', eraserOids)
+        fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "clear", oids, eids: eraserOids, cid: clearId})
         // 添加历史栈
         fabric.util.history && fabric.util.history.push({
           type: 'clear',
-          objects: canvasJson.objects,
+          objects: JSON.parse(JSON.stringify(this.toJSON().objects)),
           clearId
         })
       }

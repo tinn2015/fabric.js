@@ -1,3 +1,4 @@
+/* eslint-disable no-var */
 //@ts-nocheck
 import { Point } from '../point.class';
 
@@ -118,7 +119,7 @@ import { Point } from '../point.class';
      * @param {Event} e mouse event
      */
     _groupSelectedObjects: function (e) {
-
+      console.time('====相交选中时间====')
       var group = [],
           aGroup;
       if (this.isTrackLineSelection) {
@@ -130,12 +131,12 @@ import { Point } from '../point.class';
         path.setCoords();
         path.calcTransformMatrix()
         const selectObjects = this._objects.filter((obj) => {
-          console.log('形状相交：intersection', path, obj.intersectsWithObject(path, true, true))
-          if (obj.qn.t === 'path') {
-            return this.checkPathIntersect(path, obj)
-          } else {
-            return obj.intersectsWithObject(path, true, true)
-          }
+          // if (obj.qn.t === 'path') {
+          //   return this.checkPathIntersect(path, obj)
+          // } else {
+          //   return obj.intersectsWithObject(path, true, true)
+          // }
+          return obj.intersectsWithObject(path, false, true)
         })
         console.log('check 相交', selectObjects)
         group = selectObjects
@@ -158,6 +159,8 @@ import { Point } from '../point.class';
       // this._trackSelectionPoints = []
       // this.needClearTopContext = false
       this.contextTop.closePath();
+      console.timeEnd('====相交选中时间====')
+
     },
 
     /**
@@ -217,8 +220,7 @@ import { Point } from '../point.class';
           for (let j = 0; j < path2.path.length; j++) {
               const item2 = JSON.parse(JSON.stringify(path2.path[j]))
               const point2 = item2.splice(1,3)
-              console.log(Math.abs(point1[0] - point2[0]), Math.abs(point1[1] - point2[1]))
-              if (Math.abs(point1[0] - point2[0]) < 20 && Math.abs(point1[1] - point2[1]) < 20) {
+              if (Math.abs(point1[0] - point2[0]) < 5 && Math.abs(point1[1] - point2[1]) < 5) {
                   isIntersect = true
                   break
               }

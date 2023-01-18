@@ -67,6 +67,7 @@ import { getSyncOptions } from '../util/index';
        * and add it to every intersected erasable object.
        */
       _finalizeAndAddPath: function (e) {
+        console.time('====相交选中时间====')
         var ctx = this.canvas.contextTop, canvas = this.canvas;
         ctx.closePath();
 
@@ -85,13 +86,14 @@ import { getSyncOptions } from '../util/index';
 
         // todo: get selectObjects on trackBrush move
         const selectObjects = canvas._objects.filter(function (obj) {
-            if (obj.qn.t === 'path') {
-                return _this.checkPathIntersect(path, obj)
-            } else if (obj.intersectsWithObject(path, false, true)) {
-                return true
-            } else {
-                return false
-            }
+            // if (obj.qn.t === 'path') {
+            //     return _this.checkPathIntersect(path, obj)
+            // } else if (obj.intersectsWithObject(path, false, true)) {
+            //     return true
+            // } else {
+            //     return false
+            // }
+            return obj.intersectsWithObject(path, false, true)
         })
         console.log('selectObjects', selectObjects)
         canvas.discardActiveObject();
@@ -103,6 +105,7 @@ import { getSyncOptions } from '../util/index';
         }
         
         canvas.requestRenderAll();
+        console.timeEnd('====相交选中时间====')
       },
 
       /**

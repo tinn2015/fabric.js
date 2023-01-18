@@ -486,7 +486,7 @@ import { Point } from '../point.class';
      * @type Boolean
      * @default
      */
-    lockScalingFlip:          false,
+    lockScalingFlip:          true,
 
     /**
      * When `true`, object is not exported in OBJECT/JSON

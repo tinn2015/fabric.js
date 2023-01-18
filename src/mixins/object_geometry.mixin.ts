@@ -1,3 +1,4 @@
+/* eslint-disable no-var */
 //@ts-nocheck
 import { Point } from '../point.class';
 
@@ -235,10 +236,13 @@ import { Point } from '../point.class';
      * @return {Boolean} true if object intersects with another object
      */
     intersectsWithObject: function(other, absolute, calculate) {
+      console.log('当前对象：', this.getCoords(absolute, calculate))
+      console.log('相交对象：', other.getCoords(absolute, calculate))
       var intersection = fabric.Intersection.intersectPolygonPolygon(
         this.getCoords(absolute, calculate),
         other.getCoords(absolute, calculate)
       );
+      console.log('====intersectsWithObject====', intersection)
       return intersection.status === 'Intersection'
         || other.isContainedWithinObject(this, absolute, calculate)
         || this.isContainedWithinObject(other, absolute, calculate);

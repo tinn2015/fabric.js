@@ -839,14 +839,9 @@ import { getSyncOptions } from '../util/index';
         //  commense event sequence
         canvas.fire('before:path:created', { path: path });
 
-        // 添加到历史栈
-        fabric.util.history && fabric.util.history.push({
-          type: 'eraser',
-          objects: [path]
-        })
-
         // finalize erasing
         var _this = this;
+        let needHistory = false
         var context = {
           targets: [],
           subTargets: [],
@@ -854,10 +849,23 @@ import { getSyncOptions } from '../util/index';
           drawables: {}
         };
         var tasks = canvas._objects.map(function (obj) {
-          return obj.erasable && obj.intersectsWithObject(path, true, true) &&
-            _this._addPathToObjectEraser(obj, path, context);
+          if (obj.erasable && obj.intersectsWithObject(path, true, true)) {
+            needHistory = true
+            return _this._addPathToObjectEraser(obj, path, context);
+          } else {
+            return false
+          }
+          // return obj.erasable && obj.intersectsWithObject(path, true, true) &&
+          //   _this._addPathToObjectEraser(obj, path, context);
         });
         tasks.push(_this.applyEraserToCanvas(path, context));
+        if (needHistory) {
+          // 添加到历史栈
+          fabric.util.history && fabric.util.history.push({
+            type: 'eraser',
+            objects: [path]
+          })
+        }
         return Promise.all(tasks)
           .then(function () {
             //  fire erasing:end
@@ -978,7 +986,7 @@ import { getSyncOptions } from '../util/index';
         for (let i = 0; i < canvas._objects.length; i++) {
           const obj = canvas._objects[i]
           console.log('====removeEraserPath intersectsWithObject====', obj.erasable)
-          if (obj.erasable) {
+          if (obj.erasable && obj.eraser) {
             await _this._removePathToObjectEraser(obj, path, context);
           }
         }
