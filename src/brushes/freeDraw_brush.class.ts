@@ -64,7 +64,6 @@ import { Point } from '../point.class';
     _drawSegment: function (ctx, p1, p2) {
       var midPoint = p1.midPointFrom(p2);
       ctx.quadraticCurveTo(p1.x, p1.y, midPoint.x, midPoint.y);
-      console.log(['Q', p1.x, p1.y, midPoint.x, midPoint.y])
       this._addSvgPath(['Q', p1.x, p1.y, midPoint.x, midPoint.y]);
       return midPoint;
     },
@@ -416,7 +415,6 @@ import { Point } from '../point.class';
         return;
       }
       if (fabric._tempFreePath) {
-        console.time('==this.canvas.remove(fabric._tempFreePath)==');
         fabric._tempFreePath._cacheCanvas = null;
         fabric._tempFreePath._cacheCanvas = null;
         fabric._tempFreePath.canvas = null;

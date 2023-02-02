@@ -940,7 +940,6 @@ import { getSyncOptions } from './util/index';
         this.drawControls(ctx);
       }
       this.fire('after:render', { ctx: ctx, });
-      console.timeEnd('==this.canvas.remove(fabric._tempFreePath)==');
     },
     renderCanvasByOne: function(ctx, object) {
       var v = this.viewportTransform, path = this.clipPath;
@@ -973,7 +972,6 @@ import { getSyncOptions } from './util/index';
       }
       this.isRendering = 0
       this.fire('after:render', { ctx: ctx, });
-      console.timeEnd('==this.canvas.remove(fabric._tempFreePath)==');
     },
 
     /**

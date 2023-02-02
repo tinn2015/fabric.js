@@ -821,12 +821,11 @@
       if (transform.actionPerformed || (this.stateful && target.hasStateChanged())) {
         // qn modified
         // 同步object modified的结果
-        console.log('_finalizeCurrentTransform options', options)
         // 同步group的修改
         const {target = {}, action, transform} = options
         const actionMapProps = {
           drag: ['left', 'top'],
-          scale: ['scaleX', 'scaleY'],
+          scale: ['scaleX', 'scaleY', 'top', 'left'],
           scaleX: ['scaleX'],
           scaleY: ['scaleY'],
           rotate: ['angle']
@@ -846,7 +845,6 @@
         })
         _options.qn = target.qn
         _options.at = action
-        // delete _options.qn.t
 
         // 添加group标识
         if (target._objects) {
@@ -867,10 +865,10 @@
               }
             ]
           })
+          fabric.util.socket && fabric.util.socket.sendCmd({cmd: 'bm', mos: {[_options.qn.oid]: _options}, at: action})
         }
-
-        console.log('object modified', _options)
-        fabric.util.socket && fabric.util.socket.draw(_options)
+        // 广播交互后的状态
+        // fabric.util.socket && fabric.util.socket.draw(_options)
 
         // group modified
         // 用于server同步
@@ -883,28 +881,41 @@
               const _options = {}
               const current = {}
               const original = {}
+              // history & server need left/right prop
+              //new Set([...modifiedProps, 'left', 'top'])
+              const object = target._objects.find(_obj => _obj.qn.oid === o.qn.oid)
               modifiedProps.forEach(key => {
                 if (o.hasOwnProperty(key)) {
-                  const {originalProps} = target._objects.find(_obj => _obj.qn.oid === o.qn.oid)
+                  const originalValue = object.originalProps[key] || 1
                   current[key] = Number(o[key].toFixed(2))
-                  original[key] = Number(originalProps[key].toFixed(2))
+                  original[key] = Number(originalValue.toFixed(2))
                   _options[key] = Number(o[key].toFixed(2))
                 }
               })
+              // update originalProps
+              object.originalProps = JSON.parse(JSON.stringify(o))
+              _options.qn = {
+                w: this.getWidth()
+              }
               mos[o.qn.oid] = _options
               historyObjs.push({qn: o.qn, current, original})
             }
           })
+
           console.log('group modified data to store:', {at: action, mos})
 
           // group对象修改加入历史栈
           fabric.util.history && fabric.util.history.push({
             type: 'modified',
             action: action,
-            objects: historyObjs
+            objects: historyObjs,
           })
 
-          fabric.util.socket && fabric.util.socket.modifyObjects({at: action, mos})
+          // 用于server同步
+          console.log('draw options batch', {at: action, mos})
+          // 广播交互后的状态
+          fabric.util.socket && fabric.util.socket.sendCmd({cmd: 'bm', mos, at: action})
+          // fabric.util.socket && fabric.util.socket.modifyObjects({at: action, mos})
         }
 
         this._fire('modified', options);

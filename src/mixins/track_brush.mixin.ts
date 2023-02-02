@@ -121,7 +121,6 @@ import { getSyncOptions } from '../util/index';
             for (let j = 0; j < path2.path.length; j++) {
                 const item2 = JSON.parse(JSON.stringify(path2.path[j]))
                 const point2 = item2.splice(1,3)
-                console.log(Math.abs(point1[0] - point2[0]), Math.abs(point1[1] - point2[1]))
                 if (Math.abs(point1[0] - point2[0]) < 20 && Math.abs(point1[1] - point2[1]) < 20) {
                     isIntersect = true
                     break

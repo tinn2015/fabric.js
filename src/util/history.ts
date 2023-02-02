@@ -10,6 +10,7 @@ import { getSyncOptions } from './index';
         clearId?: string, // 每次清除会生成一个clearId, recover的时候会用到
         current?: Record<string, any>,
         original?: Record<string, any>
+        oids?: string[]
         // canvasJson?: Record<string, any> // 整个画布json
     }
 
@@ -298,18 +299,24 @@ import { getSyncOptions } from './index';
         // 修改对象
         __objectModified(data: snapshot, sync: boolean) {
             const  {objects, action} = data
-            console.log('__objectModified', data)
+            const mos: any = {}
             objects?.forEach(obj => {
                 const index = this.fCanvas.getObjects().findIndex((i: any) => i.qn.oid === obj.qn.oid)
                 if (index > -1) {
                     const ratioObject = this._getRatioObject(Object.assign({}, obj.current, {qn:obj.qn}))
                     this.fCanvas.item(index).setOptions(ratioObject)
-                    this.fCanvas.item(index).setCoords()
-
-                    // undo/redo 的修改协同
-                    fabric.util.socket && fabric.util.socket.draw(Object.assign({}, obj.current, {qn: obj.qn, at: action}))
+                    // this.fCanvas.item(index).setCoords()
+                    const mosCopy = JSON.parse(JSON.stringify(obj.current))
+                    mosCopy.qn = {
+                        w: this.fCanvas.getWidth()
+                    }
+                    mos[obj.qn.oid] = mosCopy
                 }
             })
+            // 批量修改
+            console.log('undo redo 批量修改', {cmd: 'bm', mos, at: action})
+            fabric.util.socket && fabric.util.socket.sendCmd({cmd: 'bm', mos, at: action})
+            // fabric.util.socket && fabric.util.socket.draw(Object.assign({}, obj.current, {qn: obj.qn, at: action}))
             this.fCanvas.requestRenderAll()
         }
 
@@ -357,7 +364,6 @@ import { getSyncOptions } from './index';
 
         // 恢复被清除的内容
         async __recoverClearCanvas (data: snapshot, sync: boolean) {
-            console.log('__recoverClearCanvas', data, sync)
             const {objects, clearId} = data
             const oids: any[] = []
             const eraserOids: any[] = []
@@ -378,7 +384,6 @@ import { getSyncOptions } from './index';
                 })
                 const json = this.fCanvas.toJSON()
                 json.objects.push(...objects) 
-                console.log('__recoverClearCanvas json')
                 await this.fCanvas.loadFromJSON(JSON.parse(JSON.stringify(json)))
                 await this.fCanvas.requestRenderAll()
                 fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "rc", oids, cid: clearId, eids: eraserOids})
@@ -462,14 +467,16 @@ import { getSyncOptions } from './index';
             const curWidth = this.fCanvas.getWidth();
             const curHeight = this.fCanvas.getHeight();
             const {qn} = object
+            const defaultProps = ['scaleX', 'scaleY', 'left', 'top']
             const ratioX = curWidth / qn.w;
             // const ratioY = curHeight / qn.h;
-            object.scaleX = ((object.scaleX as number) || 1) * ratioX;
+            object.scaleX && (object.scaleX = ((object.scaleX as number) || 1) * ratioX)
             object.left && (object.left = (object.left as number) * ratioX);
-            object.scaleY = ((object.scaleY as number) || 1) * ratioX;
+            object.scaleY && (object.scaleY = ((object.scaleY as number) || 1) * ratioX)
             object.top && (object.top = (object.top as number) * ratioX);
             qn.w = curWidth;
             qn.h = curHeight;
+            console.log('undo redo ratio', object)
             return object
         }
     }

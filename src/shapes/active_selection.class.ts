@@ -51,8 +51,8 @@
         objects.forEach((obj: any) => {
           obj.hasBorders = obj.hasControls = false
         })
-        options.qn.t = 'as'
-        fabric.util.socket && fabric.util.socket.draw({qn: options.qn, oids: objects.map(i => i.qn.oid)})
+        // options.qn.t = 'as'
+        // fabric.util.socket && fabric.util.socket.draw({qn: options.qn, oids: objects.map(i => i.qn.oid)})
       }
     },
 
@@ -130,9 +130,9 @@
         obj.hasBorders = obj.hasControls = true
       })
       this.removeAll();
-      const qn = this.qn
-      qn.t = 'ds'
-      fabric.util.socket && fabric.util.socket.draw({qn: this.qn, oids: this._objects.map(i => i.qn.oids) })
+      // const qn = this.qn
+      // qn.t = 'ds'
+      // fabric.util.socket && fabric.util.socket.draw({qn: this.qn, oids: this._objects.map(i => i.qn.oids) })
       return false;
     },
 
