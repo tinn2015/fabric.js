@@ -751,7 +751,7 @@
           // qn modified
         // shape 添加历史栈
         console.log('===mouseup call===', 'history push', fabric._tmpDrawingObj)
-        if (fabric.util.history)  {
+        if (fabric.util.history && fabricItemParams.qn.t !== 'path')  {
           const shapeMap = {circle: 'Circle', rect: 'Rect', triangle: 'Triangle', line: 'Line'}
           const type = shapeMap[fabricItemParams.qn.t]
           // line 需要两个参数

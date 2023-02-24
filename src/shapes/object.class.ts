@@ -1056,7 +1056,6 @@ import { Point } from '../point.class';
      * @param {CanvasRenderingContext2D} ctx Context to render on
      */
     render: function(ctx) {
-      console.time('==object.render==')
       // do not render if width/height are zeros or object is not visible
       if (this.isNotVisible()) {
         return;
@@ -1084,11 +1083,9 @@ import { Point } from '../point.class';
         }
       }
       ctx.restore();
-      console.timeEnd('==object.render==')
     },
 
     renderByOne: function (ctx) {
-      console.time('==object.render==')
       if (this.isNotVisible()) {
         return;
       }
@@ -1117,7 +1114,6 @@ import { Point } from '../point.class';
       }
 
       ctx.restore();
-      console.timeEnd('==object.render==')
     },
 
     renderCache: function(options) {

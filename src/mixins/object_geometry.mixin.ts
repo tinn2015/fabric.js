@@ -236,8 +236,6 @@ import { Point } from '../point.class';
      * @return {Boolean} true if object intersects with another object
      */
     intersectsWithObject: function(other, absolute, calculate) {
-      console.log('当前对象：', this.getCoords(absolute, calculate))
-      console.log('相交对象：', other.getCoords(absolute, calculate))
       var intersection = fabric.Intersection.intersectPolygonPolygon(
         this.getCoords(absolute, calculate),
         other.getCoords(absolute, calculate)
