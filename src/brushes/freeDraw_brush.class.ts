@@ -76,8 +76,6 @@ import { Point } from '../point.class';
       if (!this.canvas._isMainEvent(options.e)) {
         return;
       }
-      // this.canvas.clearContext(this.canvas.contextTop);
-      this.lastPoint = [pointer.x, pointer.y, new Date().getTime()]
       this.drawStraightLine = options.e[this.straightLineKey];
       this._prepareForDrawing(pointer);
       // capture coordinates immediately
@@ -101,10 +99,6 @@ import { Point } from '../point.class';
       if (this.limitedToCanvasSize === true && this._isOutSideCanvas(pointer)) {
         return;
       }
-
-      var cur = new Date().getTime()
-      document.getElementById('tip')?.innerText = `${cur - this.lastPoint[2]}`
-      this.lastPoint = [pointer.x, pointer.y, cur]
 
       if (this._captureDrawingPath(pointer) && this._points.length > 1) {
         if (this.needsFullRender()) {
@@ -136,10 +130,7 @@ import { Point } from '../point.class';
       if (!this.canvas._isMainEvent(options.e)) {
         return true;
       }
-      var cur = new Date().getTime()
-      document.getElementById('tip')?.innerText = `${cur - this.lastPoint[2]}`
-      this.lastPoint = [options.e.x, options.e.y, cur]
-
+      fabric.util.statistics.enableStatistics && fabric.util.statistics.recordPathStartTime(performance.now())
       this.drawStraightLine = false;
       this.oldEnd = undefined;
       
@@ -354,7 +345,6 @@ import { Point } from '../point.class';
      * and add it to the fabric canvas.
      */
     _finalizeAndAddPath: function() {
-      fabric._drawPathStamp = Date.now()
       var ctx = this.canvas.contextTop;
       ctx.closePath();
       // if (this.decimate) {
@@ -376,8 +366,8 @@ import { Point } from '../point.class';
       this.canvas.fire('before:path:created', { path: path });
       this.canvas.add(path);
       // 再下一帧中删除上层画布的path， 预期改善最后一笔的延迟
-      fabric._freePathOnTopCanvas = true
       this.canvas.renderCanvasByOne(this.canvas.contextContainer, path)
+      fabric._freePathOnTopCanvas = true
       // this.canvas.requestRenderAll();
 
       path.setCoords();

@@ -16,6 +16,7 @@ import './src/util/dom_misc';
 import './src/util/dom_request';
 import './src/util/qn';
 import './src/util/history';
+import './src/util/statistics';
 import './src/log';
 import './src/util/animate'; // optional animation
 import './src/util/animate_color'; // optional animation
