@@ -133,7 +133,7 @@ import { Point } from '../point.class';
         const selectObjects = this._objects.filter((obj) => {
           if (obj.qn.t === 'path' && ((!obj.scaleX || obj.scaleX === 1) && (!obj.scaleY || obj.scaleY === 1))) {
             if (!obj.intersectsWithObject(path, true, true)) return false
-            return this.checkPathIntersect(path, obj)
+            return obj.checkPathIntersect2(path)
           } else {
             return obj.intersectsWithObject(path, true, true)
           }
@@ -206,34 +206,6 @@ import { Point } from '../point.class';
       }
 
       return group;
-    },
-
-    /**
-       * 检查两个path相交
-       * @param path1 
-       * @param path2 
-       */
-     checkPathIntersect(path1, path2) {
-      let isIntersect = false
-      const path2Offset = [path2.ownMatrixCache.value[4] - path2.pathOffset.x, path2.ownMatrixCache.value[5] - path2.pathOffset.y]
-      console.log('path2Offset', path2Offset)
-      checkPath:for (let i = 0; i < path1.path.length; i++) {
-          const item1 = JSON.parse(JSON.stringify(path1.path[i]))
-          const point1 = item1.splice(1,3)
-          for (let j = 0; j < path2.path.length; j++) {
-              const item2 = JSON.parse(JSON.stringify(path2.path[j]))
-              const point2 = item2.splice(1,3).map((item, index) => item + path2Offset[index])
-              if (Math.sqrt(Math.pow(Math.abs(point1[0] - point2[0]), 2) + Math.pow(Math.abs(point1[1] - point2[1]), 2)) < 15) {
-                isIntersect = true
-                break checkPath
-              }
-              // if (Math.abs(point1[0] - point2[0]) < 10 && Math.abs(point1[1] - point2[1]) < 10) {
-              //     isIntersect = true
-              //     break
-              // }
-          }
-      }
-      return isIntersect
     },
 
     /**

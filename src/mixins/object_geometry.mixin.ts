@@ -245,6 +245,211 @@ import { Point } from '../point.class';
         || other.isContainedWithinObject(this, absolute, calculate)
         || this.isContainedWithinObject(other, absolute, calculate);
     },
+    
+    /**
+       * 检查两个path相交
+       * @param path1 
+       *
+       */
+     checkPathIntersect(path1) {
+       console.log('path1', path1)
+      let isIntersect = false
+      const path2Offset = [this.ownMatrixCache.value[4] - this.pathOffset.x, this.ownMatrixCache.value[5] - this.pathOffset.y]
+      console.log('path2Offset', path2Offset)
+      checkPath:for (let i = 0; i < path1.path.length; i++) {
+          const item1 = JSON.parse(JSON.stringify(path1.path[i]))
+          const point1 = item1.splice(1,3)
+          const isHit = this.checkPointHitPath({x: point1[0], y: point1[1]})
+          if (isHit) {
+            isIntersect = true
+            break checkPath
+          }
+          console.log('============================== break ========================')
+          // for (let j = 0; j < this.path.length; j++) {
+          //     const item2 = JSON.parse(JSON.stringify(this.path[j]))
+          //     const point2 = item2.splice(1,3).map((item, index) => item + path2Offset[index])
+          //     const xd = point1[0] - point2[0];
+          //     const yd = point1[1] - point2[1];
+          //     const isHit = this.checkPointHitPath2({x: point1[0], y: point1[1]})
+          //     // const distance = Math.hypot(xd, yd);
+
+          //     // console.log('相交选中，distance', distance)
+          //     if (isHit) {
+          //       isIntersect = true
+          //       break checkPath
+          //     }
+          // }
+          // const point = path1.path[i]
+          // const pointer = {
+          //   x: point[1],
+          //   y: point[2]
+          // }
+          // if (this.checkPointHitPath(pointer)) {
+          //   isIntersect = true
+          //   break checkPath
+          // }
+      }
+      return isIntersect
+    },
+
+    /**
+     * 两点位置判断
+     * @param path1 
+     * @returns 
+     */
+    checkPathIntersect2 (path1) {
+      let isIntersect = false
+      const path2Offset = [this.ownMatrixCache.value[4] - this.pathOffset.x, this.ownMatrixCache.value[5] - this.pathOffset.y]
+      console.log('path2Offset', path2Offset)
+      checkPath:for (let i = 0; i < path1.path.length; i++) {
+          const item1 = JSON.parse(JSON.stringify(path1.path[i]))
+          const point1 = item1.splice(1,3)
+          for (let j = 0; j < this.path.length; j++) {
+              const item2 = JSON.parse(JSON.stringify(this.path[j]))
+              const point2 = item2.splice(1,3).map((item, index) => item + path2Offset[index])
+              if (Math.sqrt(Math.pow(Math.abs(point1[0] - point2[0]), 2) + Math.pow(Math.abs(point1[1] - point2[1]), 2)) < 15) {
+                isIntersect = true
+                break checkPath
+              }
+              // if (Math.abs(point1[0] - point2[0]) < 10 && Math.abs(point1[1] - point2[1]) < 10) {
+              //     isIntersect = true
+              //     break
+              // }
+          }
+      }
+      return isIntersect
+    },
+
+    /**
+     * 面积法
+     *  1. 当前点P与已知轨迹点A,B 组成一个三角形
+     *  2. 先判断是不是锐角三角形， 钝角直接返回
+     *  3. 已知三边长，根据海伦公式求三角形面积
+     *  4. 根据面积得到P到A,B的距离
+     * 
+     * @param pointer 
+     */
+    checkPointHitPath2 (pointer) {
+      function distance2d (x1, y1, x2, y2) {
+        const xd = x2 - x1;
+        const yd = y2 - y1;
+        return Math.hypot(xd, yd);
+      }
+      const x = pointer.x;
+      const y = pointer.y;
+      const threshold = 10
+      const offset = [this.ownMatrixCache.value[4] - this.pathOffset.x, this.ownMatrixCache.value[5] - this.pathOffset.y]
+      const path = this.path;
+      let A = [path[0][1] + offset[0], path[0][2] + offset[1]]
+      let B = [path[1][1] + offset[0], path[1][2] + + offset[1]]
+
+      if (
+        distance2d(A[0], A[1], x, y) < threshold ||
+        distance2d(B[0], B[1], x, y) < threshold
+      ) {
+        return true;
+      }
+
+      for (let i = 0; i < this.path.length; i++) {
+        const deltaAB = [B[0] - A[0], B[1] - A[1]];
+        const deltaPA = [x - A[0], y - A[1]];
+        const deltaPB = [x - B[0], y- B[1]];
+        const lengthAB = Math.hypot(deltaAB[1], deltaAB[0]);
+        const lengthPA = Math.hypot(deltaPA[1], deltaPA[0]);
+        const lengthPB = Math.hypot(deltaPB[1], deltaPB[0]);
+        const maxLength = Math.max(lengthAB, lengthPA, lengthPB)
+
+        if (maxLength == lengthAB) {
+          // 海伦公式， 三角形面积
+          const halfPerimeter = 0.5 * (lengthAB + lengthPA + lengthPB)
+          const s = Math.sqrt(halfPerimeter*(halfPerimeter - lengthAB)*(halfPerimeter - lengthPA)*(halfPerimeter - lengthPB))
+          const distance = s * 2 / lengthAB
+
+          console.log('distance', distance)
+
+          if (distance < threshold) {
+            return true;
+          }
+        }
+        if (i + 1 >= this.path.length) {
+          return false
+        }
+        A = B;
+        console.log('path', this.path.length, i, this.path[i + 1])
+        B = [this.path[i + 1][1] + offset[0], this.path[i + 1][2] + offset[1]];
+      }
+    },
+    // 判断一个点是否与path相交
+    checkPointHitPath (pointer) {
+      console.log('checkPointHitPath')
+      const x = pointer.x;
+      const y = pointer.y;
+      const threshold = 5
+
+      function distance2d (x1, y1, x2, y2) {
+        const xd = x2 - x1;
+        const yd = y2 - y1;
+        return Math.hypot(xd, yd);
+      }
+
+      // 角度计算
+      // if (this.angle === 0) {
+      //   x = point[0] - element.x;
+      //   y = point[1] - element.y;
+      // } else {
+      //   // Counter-rotate the point around center before testing
+      //   const [minX, minY, maxX, maxY] = getElementAbsoluteCoords(element);
+      //   const rotatedPoint = rotatePoint(
+      //     point,
+      //     [minX + (maxX - minX) / 2, minY + (maxY - minY) / 2],
+      //     -element.angle,
+      //   );
+      //   x = rotatedPoint[0] - element.x;
+      //   y = rotatedPoint[1] - element.y;
+      // }
+      const offset = [this.ownMatrixCache.value[4] - this.pathOffset.x, this.ownMatrixCache.value[5] - this.pathOffset.y]
+      const path = this.path;
+      let A = [path[0][1] + offset[0], path[0][2] + offset[1]]
+      let B = [path[1][1] + offset[0], path[1][2] + offset[1]]
+      let P: readonly [number, number];
+      console.log('A', A)
+      console.log('B', B)
+
+      // For freedraw dots
+      if (
+        distance2d(A[0], A[1], x, y) < threshold ||
+        distance2d(B[0], B[1], x, y) < threshold
+      ) {
+        return true;
+      }
+
+      // For freedraw lines
+      for (let i = 1; i < this.path.length; i++) {
+        const delta = [B[0] - A[0], B[1] - A[1]];
+        const length = Math.hypot(delta[1], delta[0]);
+
+        const U = [delta[0] / length, delta[1] / length];
+        const C = [x - A[0], y - A[1]];
+        const d = (C[0] * U[0] + C[1] * U[1]) / Math.hypot(U[1], U[0]);
+        P = [A[0] + U[0] * d, A[1] + U[1] * d];
+
+        const da = distance2d(P[0], P[1], A[0], A[1]);
+        const db = distance2d(P[0], P[1], B[0], B[1]);
+
+        P = db < da && da > length ? B : da < db && db > length ? A : P;
+        console.log('distance', Math.hypot(y - P[1], x - P[0]))
+
+        if (Math.hypot(y - P[1], x - P[0]) < threshold) {
+          return true;
+        }
+        if (i + 1 >= this.path.length) {
+          return false
+        }
+        A = B;
+        console.log('path', this.path.length, i, this.path[i + 1])
+        B = [this.path[i + 1][1] + offset[0], this.path[i + 1][2] + offset[1]];
+      }
+    },
 
     /**
      * Checks if object is fully contained within area of another object

@@ -39,6 +39,7 @@ import './src/brushes/circle_brush.class'; // optional freedrawing
 import './src/brushes/spray_brush.class'; // optional freedrawing
 import './src/brushes/pattern_brush.class'; // optional freedrawing
 import './src/brushes/freeDraw_brush.class'; // optional freedrawing
+import './src/brushes/intersectEraser_brush.class'; // optional freedrawing
 import './src/canvas.class'; // optional interaction
 import './src/mixins/canvas_events.mixin'; // optional interaction
 import './src/mixins/canvas_grouping.mixin'; // optional interaction

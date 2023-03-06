@@ -290,6 +290,9 @@ import { getSyncOptions } from './index';
                 object.qn.sync = sync
                 object.qn.noHistoryStack = true
                 const ratioObject = this._getRatioObject(object)
+                if (!ratioObject.opacity || ratioObject.opacity !== 1) {
+                    ratioObject.set('opacity', 1)
+                }
                 // 设备适配
                 this.fCanvas.add(ratioObject);
             })
