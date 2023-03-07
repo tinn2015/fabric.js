@@ -252,14 +252,13 @@ import { Point } from '../point.class';
        *
        */
      checkPathIntersect(path1) {
-       console.log('path1', path1)
       let isIntersect = false
       const path2Offset = [this.ownMatrixCache.value[4] - this.pathOffset.x, this.ownMatrixCache.value[5] - this.pathOffset.y]
       console.log('path2Offset', path2Offset)
       checkPath:for (let i = 0; i < path1.path.length; i++) {
           const item1 = JSON.parse(JSON.stringify(path1.path[i]))
           const point1 = item1.splice(1,3)
-          const isHit = this.checkPointHitPath({x: point1[0], y: point1[1]})
+          const isHit = this.checkPointHitPath2({x: point1[0], y: point1[1]})
           if (isHit) {
             isIntersect = true
             break checkPath
@@ -293,7 +292,7 @@ import { Point } from '../point.class';
     },
 
     /**
-     * 两点位置判断
+     * 两点之间的距离判断
      * @param path1 
      * @returns 
      */
@@ -321,7 +320,64 @@ import { Point } from '../point.class';
     },
 
     /**
-     * 面积法
+     * 两个点组成的线段是否交叉
+     * @param path1 
+     * @returns 
+     */
+    checkPathIntersect3 (path1) {
+      let isIntersect = false
+      const offset = [this.ownMatrixCache.value[4] - this.pathOffset.x, this.ownMatrixCache.value[5] - this.pathOffset.y]
+      // const purePath = this.path.map(i => [i[1], i[2]])
+      // const purePath1 = path1.path.map(i => [i[1], i[2]])
+      // var line1 = window.turf.lineString(purePath);
+      // var line2 = window.turf.lineString(purePath1);
+      // var intersects = window.geometric.lineIntersectsLine(purePath, purePath1)
+      // console.log('checkPathIntersect3 intersects', intersects, purePath, purePath1)
+      checkPath:for (let i = 0; i < path1.path.length - 1; i++) {
+          const point1 = [path1.path[i][1], path1.path[i][2]]
+          const point1next = [path1.path[i+1][1], path1.path[i+1][2]]
+          for (let j = 0; j < this.path.length - 1; j++) {
+            const point2 = [this.path[j][1]  + offset[0], this.path[j][2] + offset[1]]
+            const point2next = [this.path[j+1][1] + offset[0], this.path[j+1][2] + offset[1]]
+            var line1 = [point1, point1next];
+            var line2 = [point2, point2next];
+            var intersect = window.geometric.lineIntersectsLine(line1, line2);
+            // var line1 = turf.lineString([[126, -11], [129, -21]]);
+            // var line2 = turf.lineString([[123, -18], [131, -14]]);
+            // var intersects = turf.lineIntersect(line1, line2);
+            console.log('checkPathIntersect3 intersect', intersect, [point1, point1next], [point2, point2next])
+            if (intersect) {
+              isIntersect = true
+              break checkPath
+            }
+          }
+        }
+          
+          // const res = isPointInPolygon(purePath, point1.x, point1.y)
+          // console.log('checkPathIntersect3 res', res)
+          //     if (res) {
+          //     isIntersect = true
+          //     break checkPath
+          //   }
+      // }
+      return isIntersect
+    },
+
+    checkPointHitPath3 (line1) {
+      const offset = [this.ownMatrixCache.value[4] - this.pathOffset.x, this.ownMatrixCache.value[5] - this.pathOffset.y]
+      for (let i = 0; i < this.path.length - 1; i++) {
+        const line2 = [[this.path[i][1] + offset[0], this.path[i][2] + offset[1]], [this.path[i+1][1] + offset[0], this.path[i+1][2] + offset[1]]]
+        var intersect = window.geometric.lineIntersectsLine(line1, line2);
+        // const pointerOnLine = window.geometric.pointOnLine([pointer.x, pointer.y], line, 0)
+        // console.log('checkPointHitPath3', pointerOnLine, line)
+        if (intersect) {
+          return true
+        }
+      }
+    },
+
+    /**
+     * 面积法(准，但是计算量大时间长)
      *  1. 当前点P与已知轨迹点A,B 组成一个三角形
      *  2. 先判断是不是锐角三角形， 钝角直接返回
      *  3. 已知三边长，根据海伦公式求三角形面积
@@ -379,12 +435,13 @@ import { Point } from '../point.class';
         B = [this.path[i + 1][1] + offset[0], this.path[i + 1][2] + offset[1]];
       }
     },
+
     // 判断一个点是否与path相交
     checkPointHitPath (pointer) {
       console.log('checkPointHitPath')
       const x = pointer.x;
       const y = pointer.y;
-      const threshold = 5
+      const threshold = 10
 
       function distance2d (x1, y1, x2, y2) {
         const xd = x2 - x1;

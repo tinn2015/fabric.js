@@ -133,7 +133,7 @@ import { Point } from '../point.class';
         const selectObjects = this._objects.filter((obj) => {
           if (obj.qn.t === 'path' && ((!obj.scaleX || obj.scaleX === 1) && (!obj.scaleY || obj.scaleY === 1))) {
             if (!obj.intersectsWithObject(path, true, true)) return false
-            return obj.checkPathIntersect2(path)
+            return obj.checkPathIntersect3(path)
           } else {
             return obj.intersectsWithObject(path, true, true)
           }

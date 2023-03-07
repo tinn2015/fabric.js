@@ -56,6 +56,9 @@ import { Point } from '../point.class';
       }
 
       const objects = this.canvas.getObjects()
+      // console.log(this._points, pointer)
+      const lastPoint = this._points[this._points.length - 1]
+      const line = [[lastPoint.x, lastPoint.y], [pointer.x, pointer.y]]
       objects.forEach(obj => {
         const {oid} = obj.qn
         const includeItem = this.intersectObjects.find((item) => item.qn.oid === oid)
@@ -65,7 +68,7 @@ import { Point } from '../point.class';
         const lines = obj._getImageLines(otherCoords);
 
         if (obj.containsPoint(pointer, lines)) {
-            if (obj.qn.t !== 'path' || (obj.qn.t === 'path' && obj.checkPointHitPath2(pointer))) {
+            if (obj.qn.t !== 'path' || (obj.qn.t === 'path' && obj.checkPointHitPath3(line))) {
                 this.intersectObjects.push(obj)
                 obj.set('opacity', 0.5)
             }
@@ -201,7 +204,7 @@ import { Point } from '../point.class';
           obj.qn.noHistoryStack = true
       })
       this.canvas.remove(...this.intersectObjects)
-      fabric.util.history && fabric.util.history.push({
+      this.intersectObjects.length && fabric.util.history && fabric.util.history.push({
         type: "delete",
         objects: this.intersectObjects,
       });
