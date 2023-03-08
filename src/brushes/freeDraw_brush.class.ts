@@ -42,6 +42,8 @@ import { Point } from '../point.class';
 
     lastPoint: [],
 
+    lastPath: null,
+
     /**
      * Constructor
      * @param {fabric.Canvas} canvas
@@ -85,6 +87,11 @@ import { Point } from '../point.class';
       this._addSvgPath(['M', pointer.x, pointer.y]);
 
       this._render();
+      if (fabric.lastPath) {
+        this.canvas.requestRenderAll()
+        this.canvas.clearContext(this.canvas.contextTop);
+        console.log('clear topcontext')
+      }
     },
 
     /**
@@ -130,6 +137,15 @@ import { Point } from '../point.class';
       if (!this.canvas._isMainEvent(options.e)) {
         return true;
       }
+      const ctx = this.canvas.contextTop
+      // if (this._captureDrawingPath(option.pointer) && this.oldEnd) {
+      // }
+      ctx.beginPath();
+      ctx.moveTo(options.pointer.x, options.pointer.y);
+      // this.oldEnd = this._drawSegment(ctx, points[length - 2], points[length - 1], true);
+      ctx.stroke();
+      ctx.restore();
+
       fabric.util.statistics.enableStatistics && fabric.util.statistics.recordPathStartTime(performance.now())
       this.drawStraightLine = false;
       this.oldEnd = undefined;
@@ -353,7 +369,7 @@ import { Point } from '../point.class';
       // var _pathData = this.convertPointsToSVGPath(this._points);
       // console.log('convertPointsToSVGPath', _pathData)
       var pathData = this.svgPaths
-
+      console.log('pathData', pathData, this._points)
       if (this._isEmptySVGPath(pathData)) {
         // do not create 0 width/height paths, as they are
         // rendered inconsistently across browsers
@@ -364,10 +380,12 @@ import { Point } from '../point.class';
       }
       var path = this.createPath(pathData);
       this.canvas.fire('before:path:created', { path: path });
+      path.set('opacity', 0.1)
+      fabric.lastPath = path
       this.canvas.add(path);
+      fabric._freePathOnTopCanvas = false
       // 再下一帧中删除上层画布的path， 预期改善最后一笔的延迟
       this.canvas.renderCanvasByOne(this.canvas.contextContainer, path)
-      fabric._freePathOnTopCanvas = true
       // this.canvas.requestRenderAll();
 
       path.setCoords();

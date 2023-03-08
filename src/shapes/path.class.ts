@@ -152,10 +152,11 @@
       this._renderPathCommands(ctx);
       this._renderPaintInOrder(ctx);
       if (fabric._freePathOnTopCanvas && this.canvas.contextTop) {
+        console.log('_render clearContext')
         this.canvas.clearContext(this.canvas.contextTop)
         fabric._freePathOnTopCanvas = false
-        fabric.util.statistics.enableStatistics && fabric.util.statistics.calcPathTime(performance.now())
       }
+      fabric.util.statistics.enableStatistics && fabric.util.statistics.calcPathTime(performance.now())
     },
 
     /**
