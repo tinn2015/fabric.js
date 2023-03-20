@@ -123,24 +123,24 @@ import { Point } from '../point.class';
       var group = [],
           aGroup;
       if (this.isTrackLineSelection) {
-        var correction = this.width / 1000;
-        const pathData = fabric.util.getSmoothPathFromPoints(this._trackSelectionPoints, correction, false);
-        const  path = this._createPath(pathData);
+        // var correction = this.width / 1000;
+        // const pathData = fabric.util.getSmoothPathFromPoints(this._trackSelectionPoints, correction, false);
+        // const  path = this._createPath(pathData);
 
-        //  needed for `intersectsWithObject`
-        path.setCoords();
-        path.calcTransformMatrix()
-        const selectObjects = this._objects.filter((obj) => {
-          if (obj.qn.t === 'path' && ((!obj.scaleX || obj.scaleX === 1) && (!obj.scaleY || obj.scaleY === 1))) {
-            if (!obj.intersectsWithObject(path, true, true)) return false
-            return obj.checkPathIntersect3(path)
-          } else {
-            return obj.intersectsWithObject(path, true, true)
-          }
-          // return obj.intersectsWithObject(path, false, true)
-        })
-        console.log('check 相交', selectObjects)
-        group = selectObjects
+        // //  needed for `intersectsWithObject`
+        // path.setCoords();
+        // path.calcTransformMatrix()
+        // const selectObjects = this._objects.filter((obj) => {
+        //   if (obj.qn.t === 'path' && ((!obj.scaleX || obj.scaleX === 1) && (!obj.scaleY || obj.scaleY === 1))) {
+        //     if (!obj.intersectsWithObject(path, true, true)) return false
+        //     return obj.checkPathIntersect3(path)
+        //   } else {
+        //     return obj.intersectsWithObject(path, true, true)
+        //   }
+        //   // return obj.intersectsWithObject(path, false, true)
+        // })
+        // console.log('check 相交', selectObjects)
+        group = this._trackedObjects
       } else {
         group = this._collectObjects(e)
       }

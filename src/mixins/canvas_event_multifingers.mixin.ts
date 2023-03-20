@@ -798,7 +798,6 @@
             } else {
               shape = new window.fabric[type](fabricItemParams)
             }
-            console.log(`history push, shape 添加历史栈， object: ${fabricItemParams}, options.currentTarget: ${options.currentTarget}`)
             fabric.util.history.push({
               type: 'add',
               objects: [shape]

@@ -86,12 +86,12 @@ import { Point } from '../point.class';
 
       this._addSvgPath(['M', pointer.x, pointer.y]);
 
-      this._render();
       if (fabric.lastPath) {
         this.canvas.requestRenderAll()
         this.canvas.clearContext(this.canvas.contextTop);
         console.log('clear topcontext')
       }
+      this._render();
     },
 
     /**
@@ -378,6 +378,13 @@ import { Point } from '../point.class';
         this.canvas.requestRenderAll();
         return;
       }
+      // var path = this.createPath(pathData);
+      // this.canvas.clearContext(this.canvas.contextTop);
+      // this.canvas.fire('before:path:created', { path: path });
+      // this.canvas.add(path);
+      // this.canvas.requestRenderAll();
+      // path.setCoords();
+      // this._resetShadow();
       var path = this.createPath(pathData);
       this.canvas.fire('before:path:created', { path: path });
       path.set('opacity', 0.1)
@@ -392,12 +399,6 @@ import { Point } from '../point.class';
       this._resetShadow();
       // this.canvas.clearContext(this.canvas.contextTop);
 
-      // console.log('history push, shape 添加历史栈')
-      // // path 添加历史栈
-      // !path.qn.noHistoryStack && fabric.util.history && fabric.util.history.push({
-      //   type: 'add',
-      //   objects: [path]
-      // })
       // fire event 'path' created
       this.canvas.fire('path:created', { path: path });
     },

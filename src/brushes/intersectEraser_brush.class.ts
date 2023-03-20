@@ -37,6 +37,7 @@ import { Point } from '../point.class';
       if (!this.canvas._isMainEvent(options.e)) {
         return;
       }
+      this.canvas.clearContext(this.canvas.contextTop)
       this._prepareForDrawing(pointer);
       // capture coordinates immediately
       // this allows to draw dots (when movement never occurs)
@@ -54,9 +55,8 @@ import { Point } from '../point.class';
       if (this.limitedToCanvasSize === true && this._isOutSideCanvas(pointer)) {
         return;
       }
-
       const objects = this.canvas.getObjects()
-      // console.log(this._points, pointer)
+      console.log('move pointer', this._points, pointer)
       const lastPoint = this._points[this._points.length - 1]
       const line = [[lastPoint.x, lastPoint.y], [pointer.x, pointer.y]]
       objects.forEach(obj => {
@@ -68,14 +68,29 @@ import { Point } from '../point.class';
         const lines = obj._getImageLines(otherCoords);
 
         if (obj.containsPoint(pointer, lines)) {
-            if (obj.qn.t !== 'path' || (obj.qn.t === 'path' && obj.checkPointHitPath3(line))) {
+          console.log('obj.containsPoint', obj)
+            if (obj.qn.t !== 'path' || (obj.qn.t === 'path' && (obj.checkPointHitPath3(line) || obj.checkPointHitPath2(pointer)))) {
                 this.intersectObjects.push(obj)
                 obj.set('opacity', 0.5)
+                this.canvas.requestRenderAll()
             }
+            // else if (obj.checkPointHitPath3(line)) {
+            //   console.log('check point3')
+            //   this.intersectObjects.push(obj)
+            //     obj.set('opacity', 0.5)
+            //     this.canvas.requestRenderAll()
+            // } else if (obj.checkPointHitPath2(pointer)) {
+            //   console.log('check point')
+            //   this.intersectObjects.push(obj)
+            //   obj.set('opacity', 0.5)
+            //   this.canvas.requestRenderAll()
+            // }
         }
       })
+      // setTimeout(() => {
+      //   this.canvas.requestRenderAll()
+      // }, 10);
       console.log('this.intersectObjects', this.intersectObjects)
-      this.canvas.requestRenderAll()
 
       // check and 
       this._captureDrawingPath(pointer)
@@ -208,7 +223,9 @@ import { Point } from '../point.class';
         type: "delete",
         objects: this.intersectObjects,
       });
+      this.canvas.clearContext(this.canvas.contextTop)
       this.canvas.requestRenderAll()
+      console.log('eraser points', this._points)
       this._reset()
     }
   });

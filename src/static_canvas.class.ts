@@ -750,7 +750,6 @@ import { getSyncOptions } from './util/index';
       }
 
       if (obj.qn.t === 'path' || obj.qn.t === 'image') {
-        console.log('history push,添加历史栈')
         !obj.qn.noHistoryStack && fabric.util.history && fabric.util.history.push({
           type: 'add',
           objects: [obj]

@@ -189,13 +189,17 @@ import { getSyncOptions } from './index';
          *  6. 橡皮擦
          */
         push (data: snapshot) {
+
+            if (fabric.lastPath) {
+                fabric.lastPath.set('opacity', 1)
+                this.fCanvas.clearContext(this.fCanvas.contextTop)
+            }
             const curStack = this._getCurrentStack()
             const { objects } = data
             objects?.forEach(obj => {
                 const {qn} = obj
                 qn.sync = true
             })
-            console.log('====history push before====',curStack.stack.length, curStack.stack)
 
             // 每次有新内容的时候删除之前undo的内容
             const removeStoreIds = []
@@ -203,11 +207,11 @@ import { getSyncOptions } from './index';
                 const item = curStack.stack[i]
                 if (item && (item.type === 'remove' || item.type === 'recoverClear' || item.type === 'recoverEraser')) {
                     curStack.stack.splice(i, 1)
-                    if (item.objects && item.objects.length) {
+                    if (item.type === 'remove' && item.objects && item.objects.length) {
                         const oids = item.objects.map(obj => obj.qn.oid)
                         removeStoreIds.push(...oids)
                     }
-                    console.log('====history push remove====',curStack.stack.length, curStack.stack)
+                    console.log('==== remove====',curStack.stack.length, curStack.stack)
                     i -= 1
                 }
             }
@@ -216,7 +220,6 @@ import { getSyncOptions } from './index';
                 console.log('remove store Path', removeStoreIds)
                 fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "rs", oids: removeStoreIds})
             }
-            console.log('====history push====',data)
             curStack.stack.push(data)
             // if (!(window as any).historyPushNum) {
             //     (window as any).historyPushNum = 1
@@ -224,7 +227,6 @@ import { getSyncOptions } from './index';
             //     (window as any).historyPushNum += 1
             // }
             curStack.currentIndex = curStack.stack.length - 1
-            console.log(`history push pageId:${this.pages.currentPageId}, currentIndex:${curStack.currentIndex}, stack: ${curStack.stack.length}`)
             this._setCurrentStack(curStack)
             this.uiRender && this.uiRender()
         }

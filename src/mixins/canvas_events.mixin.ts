@@ -762,7 +762,6 @@
           } else {
             shape = new window.fabric[type](fabricItemParams)
           }
-          console.log(`history push, shape 添加历史栈， object: ${fabricItemParams}, options.currentTarget: ${options.currentTarget}`)
           fabric.util.history.push({
             type: 'add',
             objects: [shape]
@@ -971,6 +970,7 @@
       if (fabric.lastPath) {
         fabric.lastPath.set('opacity', 1)
       }
+      // this.clearContext(this.contextTop)
       this._cacheTransformEventData(e);
       this._handleEvent(e, 'down:before');
       var target = this._target;
@@ -1017,6 +1017,8 @@
       }
       console.log('isTrackLineSelection mousedown', target == this._activeObject)
       if (this.selection && this.isTrackLineSelection) {
+        this._trackLineOldEnd = []
+        this._trackedObjects = []
         const type = target == this._activeObject ? 'isActiveTarget' : 'mousedown'
         if (target == null || target !== this._activeObject) {
           this._groupSelector = {

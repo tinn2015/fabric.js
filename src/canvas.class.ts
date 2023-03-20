@@ -553,7 +553,7 @@ import { Point } from './point.class';
      */
     renderTop: function () {
       var ctx = this.contextTop;
-      if (!this.isTrackLineSelection) {
+      if (!this.isTrackLineSelection || !this._trackLineOldEnd.length) {
         this.clearContext(ctx);
       }
       this.renderTopLayer(ctx);
@@ -846,6 +846,7 @@ import { Point } from './point.class';
     _trackLineOldEnd: [],
     _trackLineColor: '#ff0000',
     _trackLineWidth: 2,
+    _trackedObjects: [],
     _drawTrackLineSelection: function (ctx) {
       const selector = this._groupSelector
       const {type, currentPoint} = selector
@@ -876,6 +877,22 @@ import { Point } from './point.class';
             ctx.lineWidth = this._trackLineWidth
           }
         }
+        // 判断线段是否与目标对象相交
+        const curLine = [[this._trackLineOldEnd.x, this._trackLineOldEnd.y], [point.x, point.y]]
+        this.getObjects().forEach(obj => {
+          const isTracked = this._trackedObjects.find(i => i.qn.oid === obj.qn.oid)
+          if (isTracked) return
+          const absolute = false
+          const otherCoords = absolute ? obj.aCoords : obj.lineCoords,
+          const lines = obj._getImageLines(otherCoords);
+
+          if (obj.containsPoint(point, lines)) {
+            console.log('obj.containsPoint', obj)
+              if (obj.qn.t !== 'path' || (obj.qn.t === 'path' && (obj.checkPointHitPath3(curLine) || obj.checkPointHitPath2(point)))) {
+                  this._trackedObjects.push(obj)
+              }
+          }
+        })
       }
     },
     _drawTrackLineSegment: function (ctx, p1, p2) {
