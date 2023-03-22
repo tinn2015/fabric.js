@@ -205,7 +205,7 @@ import { getSyncOptions } from './index';
             const removeStoreIds = []
             for (let i = 0; i < curStack.stack.length; i++) {
                 const item = curStack.stack[i]
-                if (item && (item.type === 'remove' || item.type === 'recoverClear' || item.type === 'recoverEraser')) {
+                if (item && (item.type === 'remove' || item.type === 'recoverClear' || item.type === 'recoverEraser' || item.type === 'deleteAdd')) {
                     curStack.stack.splice(i, 1)
                     if (item.type === 'remove' && item.objects && item.objects.length) {
                         const oids = item.objects.map(obj => obj.qn.oid)

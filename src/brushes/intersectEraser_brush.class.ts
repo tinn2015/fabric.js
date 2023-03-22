@@ -56,7 +56,6 @@ import { Point } from '../point.class';
         return;
       }
       const objects = this.canvas.getObjects()
-      console.log('move pointer', this._points, pointer)
       const lastPoint = this._points[this._points.length - 1]
       const line = [[lastPoint.x, lastPoint.y], [pointer.x, pointer.y]]
       objects.forEach(obj => {
@@ -214,19 +213,26 @@ import { Point } from '../point.class';
      * and add it to the fabric canvas.
      */
     _finalizeAndCheckIntersect: function() {
-      this.intersectObjects.forEach(obj => {
+      // [bugfix] 在clear命令后删除橡皮擦选中的元素，导致被清屏又重新删除
+      const currentObjectIds = this.canvas.getObjects().map(i => i.qn.oid)
+      const existObjs = this.intersectObjects.filter(i => currentObjectIds.includes(i.qn.oid))
+      if (!currentObjectIds.length || !existObjs.length) {
+        this._reset()
+        return
+      }
+      existObjs.forEach(obj => {
           obj.qn.sync = false
           obj.qn.noHistoryStack = true
       })
-      this.intersectObjects.length && this.canvas.remove(...this.intersectObjects)
-      this.intersectObjects.length && window.fabric.util.socket &&
+      existObjs.length && this.canvas.remove(...existObjs)
+      existObjs.length && window.fabric.util.socket &&
         window.fabric.util.socket.sendCmd({
           cmd: "br", // br => batchRemove
-          oids: this.intersectObjects.map((i: any) => i.qn.oid),
+          oids: existObjs.map((i: any) => i.qn.oid),
         });
-      this.intersectObjects.length && fabric.util.history && fabric.util.history.push({
+        existObjs.length && fabric.util.history && fabric.util.history.push({
         type: "delete",
-        objects: this.intersectObjects,
+        objects: existObjs,
       });
       this.canvas.clearContext(this.canvas.contextTop)
       this.canvas.requestRenderAll()
