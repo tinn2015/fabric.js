@@ -215,10 +215,15 @@ import { Point } from '../point.class';
      */
     _finalizeAndCheckIntersect: function() {
       this.intersectObjects.forEach(obj => {
-          obj.qn.sync = true
+          obj.qn.sync = false
           obj.qn.noHistoryStack = true
       })
-      this.canvas.remove(...this.intersectObjects)
+      this.intersectObjects.length && this.canvas.remove(...this.intersectObjects)
+      this.intersectObjects.length && window.fabric.util.socket &&
+        window.fabric.util.socket.sendCmd({
+          cmd: "br", // br => batchRemove
+          oids: this.intersectObjects.map((i: any) => i.qn.oid),
+        });
       this.intersectObjects.length && fabric.util.history && fabric.util.history.push({
         type: "delete",
         objects: this.intersectObjects,

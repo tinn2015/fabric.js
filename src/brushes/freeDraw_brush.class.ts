@@ -86,11 +86,11 @@ import { Point } from '../point.class';
 
       this._addSvgPath(['M', pointer.x, pointer.y]);
 
-      if (fabric.lastPath) {
-        this.canvas.requestRenderAll()
-        this.canvas.clearContext(this.canvas.contextTop);
-        console.log('clear topcontext')
-      }
+      // if (fabric.lastPath) {
+      //   this.canvas.requestRenderAll()
+      //   this.canvas.clearContext(this.canvas.contextTop);
+      //   console.log('clear topcontext')
+      // }
       this._render();
     },
 
@@ -397,7 +397,7 @@ import { Point } from '../point.class';
 
       path.setCoords();
       this._resetShadow();
-      // this.canvas.clearContext(this.canvas.contextTop);
+      this.canvas.clearContext(this.canvas.contextTop);
 
       // fire event 'path' created
       this.canvas.fire('path:created', { path: path });

@@ -970,7 +970,6 @@
       if (fabric.lastPath) {
         fabric.lastPath.set('opacity', 1)
       }
-      // this.clearContext(this.contextTop)
       this._cacheTransformEventData(e);
       this._handleEvent(e, 'down:before');
       var target = this._target;

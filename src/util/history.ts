@@ -192,7 +192,7 @@ import { getSyncOptions } from './index';
 
             if (fabric.lastPath) {
                 fabric.lastPath.set('opacity', 1)
-                this.fCanvas.clearContext(this.fCanvas.contextTop)
+                // this.fCanvas.clearContext(this.fCanvas.contextTop)
             }
             const curStack = this._getCurrentStack()
             const { objects } = data
@@ -277,28 +277,35 @@ import { getSyncOptions } from './index';
         __objectRemove(data: snapshot, sync: boolean) {
             const {objects} = data
             objects?.forEach(object => {
-                object.qn.sync = sync
+                object.qn.sync = false
                 object.qn.noHistoryStack = true
                 console.log('__objectRemove', object)
-                this.fCanvas.remove(object);
             })
+            objects?.length && this.fCanvas.remove(...objects);
             this.fCanvas.requestRenderAll()
+            objects?.length && fabric.util.socket && fabric.util.socket.sendCmd({cmd: 'br', oids: objects.map(i => i.qn.oid)})
         }
 
         // 添加对象
         __objectAdd(data: snapshot, sync: boolean) {
             const {objects} = data
+            const needAddObjects: any[] = []
             objects?.forEach(object => {
-                object.qn.sync = sync
+                object.qn.sync = false
                 object.qn.noHistoryStack = true
+                // 设备适配
                 const ratioObject = this._getRatioObject(object)
                 if (!ratioObject.opacity || ratioObject.opacity !== 1) {
                     ratioObject.set('opacity', 1)
                 }
-                // 设备适配
-                this.fCanvas.add(ratioObject);
+                needAddObjects.push(ratioObject)
+                fabric.util.socket && fabric.util.socket.add(getSyncOptions(object))
             })
-            this.fCanvas.requestRenderAll()
+            if (needAddObjects.length) {
+                this.fCanvas.add(...needAddObjects);
+                fabric.util.socket && fabric.util.socket.sendCmd({cmd: 'ba', oids: needAddObjects.map(obj => obj.qn.oid)})
+                this.fCanvas.requestRenderAll()
+            }
         }
 
         // 修改对象
