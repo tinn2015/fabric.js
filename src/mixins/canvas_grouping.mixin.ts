@@ -161,7 +161,7 @@ import { Point } from '../point.class';
       // this.needClearTopContext = false
       this.contextTop.closePath();
       console.timeEnd('====相交选中时间====')
-
+      fabric.util.socket && fabric.util.socket.sendCmd({cmd: 'as', oids: group.map(i => i.qn.oid)})
     },
 
     /**

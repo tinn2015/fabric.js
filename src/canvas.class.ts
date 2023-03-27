@@ -814,7 +814,6 @@ import { Point } from './point.class';
           maxY = Math.max(start.y, extent.y),
           strokeOffset = this.selectionLineWidth / 2;
       // render selection
-      console.log("render selection", selector)
       // qn modified
       // [bug] dont draw selection dot
       if (maxX - minX < 5 || maxY - minY < 5) return

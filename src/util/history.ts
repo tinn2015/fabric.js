@@ -303,7 +303,10 @@ import { getSyncOptions } from './index';
             })
             if (needAddObjects.length) {
                 this.fCanvas.add(...needAddObjects);
-                fabric.util.socket && fabric.util.socket.sendCmd({cmd: 'ba', oids: needAddObjects.map(obj => obj.qn.oid)})
+                // [bugfix] add服务未落地完成就同步指令，导致部分画笔未及时同步
+                setTimeout(() => {
+                    fabric.util.socket && fabric.util.socket.sendCmd({cmd: 'ba', oids: needAddObjects.map(obj => obj.qn.oid)})
+                }, 500)
                 this.fCanvas.requestRenderAll()
             }
         }

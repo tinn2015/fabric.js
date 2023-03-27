@@ -365,23 +365,23 @@ import { Point } from '../point.class';
 
     checkPointHitPath3 (line1) {
       const offset = [this.ownMatrixCache.value[4] - this.pathOffset.x, this.ownMatrixCache.value[5] - this.pathOffset.y]
-      const line2 = this.path.map(i => {
-        return [i[1] + offset[0], i[2] + offset[1]]
-      })
-      const intersect1 = window.geometric.lineIntersectsPolygon(line1, line2)
-      if (intersect1) {
-        console.log('distance intersect1', intersect1)
-      }
-      return intersect1
-      // for (let i = 0; i < this.path.length - 1; i++) {
-      //   const line2 = [[this.path[i][1] + offset[0], this.path[i][2] + offset[1]], [this.path[i+1][1] + offset[0], this.path[i+1][2] + offset[1]]]
-      //   var intersect = window.geometric.lineIntersectsLine(line1, line2);
-      //   // const pointerOnLine = window.geometric.pointOnLine([pointer.x, pointer.y], line, 0)
-      //   if (intersect) {
-      //     console.log('lineIntersectsLine', intersect)
-      //     return true
-      //   }
+      // const line2 = this.path.map(i => {
+      //   return [i[1] + offset[0], i[2] + offset[1]]
+      // })
+      // const intersect1 = window.geometric.lineIntersectsPolygon(line1, line2)
+      // if (intersect1) {
+      //   console.log('distance intersect1', intersect1)
       // }
+      // return intersect1
+      for (let i = 0; i < this.path.length - 1; i++) {
+        const line2 = [[this.path[i][1] + offset[0], this.path[i][2] + offset[1]], [this.path[i+1][1] + offset[0], this.path[i+1][2] + offset[1]]]
+        var intersect = window.geometric.lineIntersectsLine(line1, line2);
+        // const pointerOnLine = window.geometric.pointOnLine([pointer.x, pointer.y], line, 0)
+        if (intersect) {
+          console.log('lineIntersectsLine', intersect)
+          return true
+        }
+      }
     },
 
     /**
