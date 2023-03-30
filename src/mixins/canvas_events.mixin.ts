@@ -1049,6 +1049,9 @@
         var alreadySelected = target === this._activeObject;
         if (target.selectable && target.activeOn === 'down' && !this.isTrackLineSelection) {
           this.setActiveObject(target, e);
+          // 框选点击选中元素
+          console.log('active object')
+          fabric.util.socket && fabric.util.socket.sendCmd({cmd: 'as', oids: [target.qn.oid]})
         }
         var corner = target._findTargetCorner(
           this.getPointer(e, true),
@@ -1160,7 +1163,6 @@
 
         this.renderTop();
       } else if (groupSelector) { //groupSelector && this._activeObject !== this.findTarget(e)
-        console.log('roupSelector && this._activeObject !== this.findTarget(e)', groupSelector, this._activeObject, this.findTarget(e))
         pointer = this._absolutePointer;
 
         groupSelector.left = pointer.x - groupSelector.ex;
