@@ -55,44 +55,35 @@ import { Point } from '../point.class';
       if (this.limitedToCanvasSize === true && this._isOutSideCanvas(pointer)) {
         return;
       }
+      // check and 
+      const needAdd = this._captureDrawingPath(pointer)
+      if (!needAdd) return
+      const points = JSON.parse(JSON.stringify(this._points))
       const objects = this.canvas.getObjects()
-      const lastPoint = this._points[this._points.length - 1]
+      const lastPoint = points[this._points.length - 2]
+      console.log('onmousemove _points', pointer, lastPoint, points)
       const line = [[lastPoint.x, lastPoint.y], [pointer.x, pointer.y]]
-      objects.forEach(obj => {
+      console.log('onmousemove line', line)
+      for (let i = 0; i < objects.length; i++) {
+        const obj = objects[i]
         const {oid} = obj.qn
         const includeItem = this.intersectObjects.find((item) => item.qn.oid === oid)
-        if (includeItem) return
-        const absolute = false
-        const otherCoords = absolute ? obj.aCoords : obj.lineCoords,
-        const lines = obj._getImageLines(otherCoords);
+        if (includeItem) continue
+        // const absolute = false
+        // const otherCoords = absolute ? obj.aCoords : obj.lineCoords,
+        // const lines = obj._getImageLines(otherCoords);
 
-        if (obj.containsPoint(pointer, lines)) {
-          console.log('obj.containsPoint', obj)
-            if (obj.qn.t !== 'path' || (obj.qn.t === 'path' && (obj.checkPointHitPath3(line) || obj.checkPointHitPath2(pointer)))) {
-                this.intersectObjects.push(obj)
-                obj.set('opacity', 0.5)
-                this.canvas.requestRenderAll()
-            }
-            // else if (obj.checkPointHitPath3(line)) {
-            //   console.log('check point3')
-            //   this.intersectObjects.push(obj)
-            //     obj.set('opacity', 0.5)
-            //     this.canvas.requestRenderAll()
-            // } else if (obj.checkPointHitPath2(pointer)) {
-            //   console.log('check point')
-            //   this.intersectObjects.push(obj)
-            //   obj.set('opacity', 0.5)
-            //   this.canvas.requestRenderAll()
-            // }
+        // if (obj.containsPoint(pointer, lines)) {
+        //   console.log('obj.containsPoint', obj, line)
+            
+        // }
+        if (obj.qn.t !== 'path' || (obj.qn.t === 'path' && (obj.checkPointHitPath3(line)))) {
+            this.intersectObjects.push(obj)
+            obj.set('opacity', 0.5)
+            this.canvas.requestRenderAll()
         }
-      })
-      // setTimeout(() => {
-      //   this.canvas.requestRenderAll()
-      // }, 10);
+      }
       console.log('this.intersectObjects', this.intersectObjects)
-
-      // check and 
-      this._captureDrawingPath(pointer)
     },
 
     /**
