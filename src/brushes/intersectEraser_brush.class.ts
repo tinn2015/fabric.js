@@ -69,15 +69,19 @@ import { Point } from '../point.class';
         const {oid} = obj.qn
         const includeItem = this.intersectObjects.find((item) => item.qn.oid === oid)
         if (includeItem) continue
-        // const absolute = false
-        // const otherCoords = absolute ? obj.aCoords : obj.lineCoords,
-        // const lines = obj._getImageLines(otherCoords);
+        const absolute = false
+        const otherCoords = absolute ? obj.aCoords : obj.lineCoords,
+        const lines = obj._getImageLines(otherCoords);
 
-        // if (obj.containsPoint(pointer, lines)) {
-        //   console.log('obj.containsPoint', obj, line)
-            
-        // }
-        if (obj.qn.t !== 'path' || (obj.qn.t === 'path' && (obj.checkPointHitPath3(line)))) {
+        if (obj.qn.t !== 'path' && obj.containsPoint(pointer, lines)) {
+          console.log('==obj.containsPoint==', obj, line)
+          console.log('[非path 相交]')
+          this.intersectObjects.push(obj)
+          obj.set('opacity', 0.5)
+          this.canvas.requestRenderAll()
+        }
+        console.log('[橡皮擦 已有元素判断]', obj)
+        if ((obj.qn.t === 'path' && (obj.checkPointHitPath3(line)))) {
             this.intersectObjects.push(obj)
             obj.set('opacity', 0.5)
             this.canvas.requestRenderAll()

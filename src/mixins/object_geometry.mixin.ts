@@ -373,9 +373,30 @@ import { Point } from '../point.class';
       //   console.log('distance intersect1', intersect1)
       // }
       // return intersect1
+      // 【bugfix】 【临时修改】在会控平板端只画一个点，橡皮擦无法判断相交，导致这个点无法擦除
+      console.log('[==== isPoint ====]', this.isPoint())
+      if (this.path.length <= 5 || this.isPoint()) {
+        const point = {
+          x: line1[1][0],
+          y: line1[1][1]
+        }
+        const intersect = this.checkPointHitPath(point, 30)
+        console.log('只有一个点时 当前轨迹 point', point, intersect, line1)
+        return intersect
+        // intersect = window.geometric.pointOnPolygon([this.path[i][1] + offset[0], this.path[i][2] + offset[1]], line1, 40)
+      }
       for (let i = 0; i < this.path.length - 1; i++) {
+        // let intersect = false
+        // // 【bugfix】 【临时修改】在会控平板端只画一个点，橡皮擦无法判断相交，导致这个点无法擦除
+        // if (this.path.length <= 3) {
+        //   intersect = window.geometric.pointOnPolygon([this.path[i][1] + offset[0], this.path[i][2] + offset[1]], line1, 40)
+        // } else {
+        //   const line2 = [[this.path[i][1] + offset[0], this.path[i][2] + offset[1]], [this.path[i+1][1] + offset[0], this.path[i+1][2] + offset[1]]]
+        //   intersect = window.geometric.lineIntersectsLine(line1, line2);
+        // }
         const line2 = [[this.path[i][1] + offset[0], this.path[i][2] + offset[1]], [this.path[i+1][1] + offset[0], this.path[i+1][2] + offset[1]]]
-        var intersect = window.geometric.lineIntersectsLine(line1, line2);
+        const intersect = window.geometric.lineIntersectsLine(line1, line2);
+        console.log('lineIntersectsLine 橡皮擦是否相交', intersect, this.path)
         // const pointerOnLine = window.geometric.pointOnLine([pointer.x, pointer.y], line, 0)
         if (intersect) {
           console.log('lineIntersectsLine', intersect)
@@ -514,6 +535,26 @@ import { Point } from '../point.class';
         console.log('path', this.path.length, i, this.path[i + 1])
         B = [this.path[i + 1][1] + offset[0], this.path[i + 1][2] + offset[1]];
       }
+    },
+
+    /**
+     * 判断是不是一个点，
+     * 存在一种情况，虽然绘制的点很多， 但是一直在原地，这时轨迹相交判断失败，需要判断为点与线相交
+     */
+    isPoint () {
+      let max = 0
+      for (let i = 1; i < this.path.length; i++) {
+        const startPointX = this.path[0][1]
+        const startPointY = this.path[0][2]
+        const currentPointX = this.path[i][1]
+        const currentPointY = this.path[i][2]
+        max = Math.max(Math.abs(currentPointX - startPointX), Math.abs(currentPointY - startPointY), max)
+        console.log('path max', max)
+        if (max > 10) {
+          return false
+        }
+      }
+      return true
     },
 
     /**
