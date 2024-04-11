@@ -386,10 +386,12 @@ fabric.initFilterBackend = function () {
             var objects = this._objects, removed = [];
             for (var i = 0, object, index; i < objectsToRemove.length; i++) {
                 object = objectsToRemove[i];
-                index = objects.indexOf(object);
+                index = objects.findIndex(obj => obj.qn.oid === object.qn.oid);
                 // only call onObjectRemoved if an object was actually removed
                 if (index !== -1) {
                     objects.splice(index, 1);
+                    // 默认需要同步
+                    console.log('arguments[i]', arguments[i]);
                     removed.push(object);
                     callback && callback.call(this, object);
                 }
@@ -2733,7 +2735,7 @@ const reViewBoxAttrValue = new RegExp('^' +
      * @param {number} [correction] Apply a correction to the path (usually we use `width / 1000`). If value is undefined 0 is used as the correction value.
      * @return {(string|number)[][]} An array of SVG path commands
      */
-    function getSmoothPathFromPoints(points, correction) {
+    function getSmoothPathFromPoints(points, correction, sync = true) {
         var path = [], i, p1 = new Point(points[0].x, points[0].y), p2 = new Point(points[1].x, points[1].y), len = points.length, multSignX = 1, multSignY = 0, manyPoints = len > 2;
         correction = correction || 0;
         if (manyPoints) {
@@ -2741,6 +2743,8 @@ const reViewBoxAttrValue = new RegExp('^' +
             multSignY = points[2].y < p2.y ? -1 : points[2].y === p2.y ? 0 : 1;
         }
         path.push(['M', p1.x - multSignX * correction, p1.y - multSignY * correction]);
+        // 生成path的时候socket同步
+        sync && fabric.util.socket && fabric.util.socket.draw({ qn: fabric.freeDrawObject, index: 0, path: ['M', p1.x - multSignX * correction, p1.y - multSignY * correction] });
         for (i = 1; i < len; i++) {
             if (!p1.eq(p2)) {
                 var midPoint = p1.midPointFrom(p2);
@@ -2748,6 +2752,7 @@ const reViewBoxAttrValue = new RegExp('^' +
                 // midpoint is our endpoint
                 // start point is p(i-1) value.
                 path.push(['Q', p1.x, p1.y, midPoint.x, midPoint.y]);
+                sync && fabric.util.socket && fabric.util.socket.draw({ qn: fabric.freeDrawObject, index: i, path: ['Q', p1.x, p1.y, midPoint.x, midPoint.y] });
             }
             p1 = points[i];
             if ((i + 1) < points.length) {
@@ -2759,6 +2764,7 @@ const reViewBoxAttrValue = new RegExp('^' +
             multSignY = p1.y > points[i - 2].y ? 1 : p1.y === points[i - 2].y ? 0 : -1;
         }
         path.push(['L', p1.x + multSignX * correction, p1.y + multSignY * correction]);
+        sync && fabric.util.socket && fabric.util.socket.draw({ qn: fabric.freeDrawObject, index: points.length + 1, path: ['L', p1.x + multSignX * correction, p1.y + multSignY * correction] });
         return path;
     }
     /**
@@ -3599,20 +3605,48 @@ var arrayUtils = /*#__PURE__*/Object.freeze({
     fabric.util.request = request;
 })(typeof exports !== 'undefined' ? exports : window);
 
-//@ts-nocheck
-(function (global) {
-    var fabric = global.fabric || (global.fabric = {});
+(function () {
+    function guid() {
+        function S4() {
+            return (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1);
+        }
+        return (S4() + S4());
+    }
     /**
-     * Wrapper around `console.log` (when available)
-     * @param {*} [values] Values to log
-     */
-    fabric.log = console.log;
+         *
+         * @returns {
+         * 		cid: string, // createrId 创建人id
+         *		mid: string, // modifiedId 修改人id
+         *		ts: number, // timeStamp 修改时得时间戳
+         *		oid: string, // objectId 每个对象得唯一标识
+         *      w: number, // 当前画布的width
+         *		t?: string,  // type 当前类型
+         *		sync: boolean // 是否需要同步标识
+         * }
+         */
+    function genQn(option) {
+        const defaultQn = {
+            cid: window.fabric.util.userId || guid(),
+            mid: window.fabric.util.userId || guid(),
+            w: window._fCanvas.getWidth(),
+            h: window._fCanvas.getHeight(),
+            oid: guid(),
+            sync: true
+        };
+        return Object.assign({}, defaultQn, option);
+    }
     /**
-     * Wrapper around `console.warn` (when available)
-     * @param {*} [values] Values to log as a warning
+     *
+     * @param {*} type 属性名
+     * @param {*} v 挂载的内容
      */
-    fabric.warn = console.warn;
-})(typeof exports !== 'undefined' ? exports : window);
+    function use(type, v) {
+        window.fabric.util[type] = v;
+    }
+    window.fabric.util.genQn = genQn;
+    window.fabric.util.use = use;
+    window.fabric.util.genUuid = guid;
+})();
 
 (function (global) {
     /**
@@ -4812,6 +4846,534 @@ fabric.Color = Color;
 })(typeof exports !== 'undefined' ? exports : window);
 
 //@ts-nocheck
+fabric.util.array = arrayUtils;
+const { cos, sin, getElementOffset, removeFromArray, toFixed, transformPoint, invertTransform, getNodeCanvas, createCanvasElement, toDataURL, multiplyTransformMatrices, applyTransformToObject, degreesToRadians: degreesToRadians$1, enlivenObjects, enlivenObjectEnlivables, cleanUpJsdomNode, loadImage, setImageSmoothing, getById, addClass, parsePreserveAspectRatioAttribute, findScaleToFit, findScaleToCover, stylesFromArray, stylesToArray, hasStyleChanged, getPathSegmentsInfo, getPointOnPath, string: { graphemeSplit, capitalize, escapeXml }, projectStrokeOnPoints, array: { min, max }, makePathSimpler, parsePath, joinPath, getBoundsOfCurve, limitDimsByArea, capValue: clamp, populateWithProperties, qrDecompose, saveObjectTransform, resetObjectTransform, object: { clone, extend }, matrixToSVG, sizeAfterTransform, animate, animateColor, requestAnimFrame, cancelAnimFrame, rotateVector, getRandomInt, getSmoothPathFromPoints, parseUnit, toArray, request, addListener, removeListener, isTouchEvent, sendPointToPlane, radiansToDegrees, setStyle, calcRotateMatrix, makeBoundingBoxFromPoints, composeMatrix, rotatePoint, } = fabric.util;
+const getSyncOptions = (obj) => {
+    const syncProps = ['width', 'height', 'cornerColor', 'fill', 'qn', 'left', 'top', 'height', 'stroke', 'strokeWidth', 'radius', 'x1', 'x2', 'y1', 'y2', 'strokeLineCap', 'strokeLineJoin', 'strokeMiterLimit', 'zoomX', 'zoomY', 'scaleX', 'scaleY', 'crossOrigin'];
+    const options = {};
+    Object.keys(obj).forEach(key => {
+        if (syncProps.includes(key)) {
+            options[key] = obj[key];
+        }
+    });
+    if (obj.type === 'image') {
+        obj.qn.src = obj.getSrc();
+    }
+    return options;
+};
+
+(function () {
+    class History {
+        constructor(options) {
+            this.stackMap = new Map();
+            this.fCanvas = options.fCanvas;
+            this.pages = options.pages;
+            window.fabric.util.history = this;
+        }
+        get lastIndex() {
+            const curStack = this._getCurrentStack();
+            return curStack.stack.length - 1;
+        }
+        get canUndo() {
+            const curStack = this._getCurrentStack();
+            return curStack.currentIndex > -1;
+        }
+        get canRedo() {
+            const curStack = this._getCurrentStack();
+            return curStack.currentIndex < this.lastIndex;
+        }
+        setUiRender(fn) {
+            this.uiRender = fn;
+        }
+        getCurrentStack() {
+            const curStack = this._getCurrentStack();
+            return curStack.stack[curStack.currentIndex];
+        }
+        /**
+         * 删除指定页的历史记录
+         * @param pageId
+         */
+        deleteStackByPageId(pageId) {
+            this.stackMap.delete(pageId);
+            this.uiRender && this.uiRender();
+        }
+        /**
+         *
+         * @param sync true: 主动undo/redo， false: 被动undo/redo， 被动时不需要再次协同
+         * @param callback
+         * @returns
+         */
+        undo(sync = true, callback) {
+            var _a, _b;
+            const curStack = this._getCurrentStack();
+            if (!curStack.stack.length || curStack.currentIndex <= -1)
+                return;
+            const snapshot = curStack.stack[curStack.currentIndex];
+            // 添加/删除 反向操作 add -> remove, remove-> add, delete -> deleteAdd,  deleteAdd -> delete
+            if (snapshot.type === 'add') {
+                snapshot.type = 'remove';
+            }
+            else if (snapshot.type === 'remove') {
+                snapshot.type = 'add';
+            }
+            else if (snapshot.type === 'delete') {
+                snapshot.type = 'deleteAdd';
+            }
+            else if (snapshot.type === 'deleteAdd') {
+                snapshot.type = 'delete';
+            }
+            else if (snapshot.type === 'clear') {
+                snapshot.type = 'recoverClear';
+            }
+            else if (snapshot.type === 'recoverClear') {
+                snapshot.type = 'clear';
+            }
+            else if (snapshot.type === 'eraser') {
+                snapshot.type = 'recoverEraser';
+            }
+            else if (snapshot.type === 'recoverEraser') {
+                snapshot.type = 'eraser';
+            }
+            // 修改 反向操作 current -> original
+            snapshot.type === 'modified' ? (_a = snapshot.objects) === null || _a === void 0 ? void 0 : _a.forEach(obj => {
+                const temp = obj.current;
+                obj.current = obj.original;
+                obj.original = temp;
+            }) : null;
+            // 清除, 设置背景色，设置背景图 反向操作 current -> original
+            if (snapshot.type === 'bgColor' || snapshot.type === 'bgImage') {
+                const temp = snapshot.current;
+                snapshot.current = snapshot.original;
+                snapshot.original = temp;
+                (_b = snapshot.current) === null || _b === void 0 ? void 0 : _b.objects.forEach((obj) => {
+                    obj.qn.sync = true;
+                });
+            }
+            this._handle(snapshot, sync);
+            if (curStack.currentIndex > -1) {
+                curStack.currentIndex -= 1;
+                this._setCurrentStack(curStack);
+            }
+            console.log('stack currentIndex', curStack.currentIndex);
+            this.uiRender && this.uiRender();
+            // sync && window.fabric.util.socket && window.fabric.util.socket.sendCmd({ cmd: "undo" })
+            callback && callback();
+        }
+        redo(sync = true, callback) {
+            var _a;
+            const curStack = this._getCurrentStack();
+            if (!curStack.stack.length || curStack.currentIndex == this.lastIndex)
+                return;
+            if (curStack.currentIndex < this.lastIndex) {
+                curStack.currentIndex += 1;
+                this._setCurrentStack(curStack);
+            }
+            const snapshot = curStack.stack[curStack.currentIndex];
+            // 添加/删除 反向操作 add -> remove, remove-> add
+            if (snapshot.type === 'add') {
+                snapshot.type = 'remove';
+            }
+            else if (snapshot.type === 'remove') {
+                snapshot.type = 'add';
+            }
+            else if (snapshot.type === 'delete') {
+                snapshot.type = 'deleteAdd';
+            }
+            else if (snapshot.type === 'deleteAdd') {
+                snapshot.type = 'delete';
+            }
+            else if (snapshot.type === 'clear') {
+                snapshot.type = 'recoverClear';
+            }
+            else if (snapshot.type === 'recoverClear') {
+                snapshot.type = 'clear';
+            }
+            else if (snapshot.type === 'eraser') {
+                snapshot.type = 'recoverEraser';
+            }
+            else if (snapshot.type === 'recoverEraser') {
+                snapshot.type = 'eraser';
+            }
+            // 反向操作 original -> current
+            snapshot.type === 'modified' ? (_a = snapshot.objects) === null || _a === void 0 ? void 0 : _a.forEach(obj => {
+                var _a;
+                const temp = obj.current;
+                obj.current = obj.original;
+                obj.original = temp;
+                (_a = snapshot.current) === null || _a === void 0 ? void 0 : _a.objects.forEach((obj) => {
+                    obj.qn.sync = true;
+                });
+            }) : null;
+            // 清除, 设置背景色，设置背景图 反向操作 current -> original
+            if (snapshot.type === 'bgColor' || snapshot.type === 'bgImage') {
+                const temp = snapshot.current;
+                snapshot.current = snapshot.original;
+                snapshot.original = temp;
+            }
+            this._handle(snapshot, sync);
+            this.uiRender && this.uiRender();
+            // sync && window.fabric.util.socket && window.fabric.util.socket.sendCmd({ cmd: "redo" })
+            callback && callback();
+        }
+        /**
+         * 需要入栈的行为
+         *  1. 新建对象 add
+         *  2. 修改对象（单个、group） modified
+         *  3. 删除对象 delete/remove
+         *  4. clear clear
+         *  5. 设置背景 setBgColor/setBgImg
+         *  6. 橡皮擦
+         */
+        push(data) {
+            if (fabric.lastPath) {
+                fabric.lastPath.set('opacity', 1);
+                // this.fCanvas.clearContext(this.fCanvas.contextTop)
+            }
+            const curStack = this._getCurrentStack();
+            const { objects } = data;
+            objects === null || objects === void 0 ? void 0 : objects.forEach(obj => {
+                const { qn } = obj;
+                qn.sync = true;
+            });
+            // 每次有新内容的时候删除之前undo的内容
+            const removeStoreIds = [];
+            for (let i = 0; i < curStack.stack.length; i++) {
+                const item = curStack.stack[i];
+                if (item && (item.type === 'remove' || item.type === 'recoverClear' || item.type === 'recoverEraser' || item.type === 'deleteAdd')) {
+                    curStack.stack.splice(i, 1);
+                    if (item.type === 'remove' && item.objects && item.objects.length) {
+                        const oids = item.objects.map(obj => obj.qn.oid);
+                        removeStoreIds.push(...oids);
+                    }
+                    console.log('==== remove====', curStack.stack.length, curStack.stack);
+                    i -= 1;
+                }
+            }
+            if (removeStoreIds.length) {
+                // 通知remove storepath
+                console.log('remove store Path', removeStoreIds);
+                fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "rs", oids: removeStoreIds });
+            }
+            curStack.stack.push(data);
+            // if (!(window as any).historyPushNum) {
+            //     (window as any).historyPushNum = 1
+            // } else {
+            //     (window as any).historyPushNum += 1
+            // }
+            curStack.currentIndex = curStack.stack.length - 1;
+            this._setCurrentStack(curStack);
+            this.uiRender && this.uiRender();
+        }
+        _handle(data, sync) {
+            // 清空selection
+            this.fCanvas.discardActiveObject().renderAll();
+            const { type } = data;
+            switch (type) {
+                case 'add':
+                    this.__objectAdd(data, sync);
+                    break;
+                case 'remove':
+                    this.__objectRemove(data, sync);
+                    break;
+                case 'deleteAdd':
+                    this.__objectAdd(data, sync);
+                    break;
+                case 'delete':
+                    this.__objectRemove(data, sync);
+                    break;
+                case 'modified':
+                    this.__objectModified(data, sync);
+                    break;
+                case 'clear':
+                    this.__clearCanvas(data, sync);
+                    break;
+                case 'recoverClear':
+                    this.__recoverClearCanvas(data, sync);
+                    break;
+                case 'eraser':
+                    this.__addEraser(data, sync);
+                    break;
+                case 'recoverEraser':
+                    this.__removeEraser(data, sync);
+                    break;
+                case 'bgColor':
+                    this.__setBackgroundColor(data);
+                    break;
+                case 'bgImage':
+                    this.__setBackgroundImage(data);
+            }
+            console.log('hitroay stackMap', this.stackMap, this.pages);
+        }
+        // 删除对象
+        __objectRemove(data, sync) {
+            const { objects } = data;
+            objects === null || objects === void 0 ? void 0 : objects.forEach(object => {
+                object.qn.sync = false;
+                object.qn.noHistoryStack = true;
+                console.log('__objectRemove', object);
+            });
+            (objects === null || objects === void 0 ? void 0 : objects.length) && this.fCanvas.remove(...objects);
+            this.fCanvas.requestRenderAll();
+            (objects === null || objects === void 0 ? void 0 : objects.length) && fabric.util.socket && fabric.util.socket.sendCmd({ cmd: 'br', oids: objects.map(i => i.qn.oid) });
+        }
+        // 添加对象
+        __objectAdd(data, sync) {
+            const { objects } = data;
+            const needAddObjects = [];
+            objects === null || objects === void 0 ? void 0 : objects.forEach(object => {
+                object.qn.sync = false;
+                object.qn.noHistoryStack = true;
+                // 设备适配
+                const ratioObject = this._getRatioObject(object);
+                if (!ratioObject.opacity || ratioObject.opacity !== 1) {
+                    ratioObject.set('opacity', 1);
+                }
+                needAddObjects.push(ratioObject);
+                fabric.util.socket && fabric.util.socket.add(getSyncOptions(object));
+            });
+            if (needAddObjects.length) {
+                this.fCanvas.add(...needAddObjects);
+                // [bugfix] add服务未落地完成就同步指令，导致部分画笔未及时同步
+                setTimeout(() => {
+                    fabric.util.socket && fabric.util.socket.sendCmd({ cmd: 'ba', oids: needAddObjects.map(obj => obj.qn.oid) });
+                }, 500);
+                this.fCanvas.requestRenderAll();
+            }
+        }
+        // 修改对象
+        __objectModified(data, sync) {
+            const { objects, action } = data;
+            const mos = {};
+            objects === null || objects === void 0 ? void 0 : objects.forEach(obj => {
+                const index = this.fCanvas.getObjects().findIndex((i) => i.qn.oid === obj.qn.oid);
+                if (index > -1) {
+                    const ratioObject = this._getRatioObject(Object.assign({}, obj.current, { qn: obj.qn }));
+                    this.fCanvas.item(index).setOptions(ratioObject);
+                    // this.fCanvas.item(index).setCoords()
+                    const mosCopy = JSON.parse(JSON.stringify(obj.current));
+                    mosCopy.qn = {
+                        w: this.fCanvas.getWidth()
+                    };
+                    mos[obj.qn.oid] = mosCopy;
+                }
+            });
+            // 批量修改
+            console.log('undo redo 批量修改', { cmd: 'bm', mos, at: action });
+            fabric.util.socket && fabric.util.socket.sendCmd({ cmd: 'bm', mos, at: action });
+            // fabric.util.socket && fabric.util.socket.draw(Object.assign({}, obj.current, {qn: obj.qn, at: action}))
+            this.fCanvas.requestRenderAll();
+        }
+        // 画布清除
+        // 这里应该改为 clear recovery
+        async __clearCanvas(data, sync) {
+            console.log('__clearCanvas', data, sync);
+            const { objects, clearId } = data;
+            const curObjects = this.fCanvas.getObjects();
+            if (objects) {
+                const removeObjIds = objects.map(obj => obj.qn.oid);
+                const removeObjects = curObjects.filter((obj) => {
+                    if (removeObjIds.includes(obj.qn.oid)) {
+                        obj.qn.noHistoryStack = true;
+                        obj.qn.sync = false;
+                        return true;
+                    }
+                    return false;
+                });
+                const eraserOids = [];
+                removeObjects.forEach((obj) => {
+                    if (obj.eraser) {
+                        const eraserObjects = obj.eraser._objects || obj.eraser.objects;
+                        eraserObjects.length && eraserObjects.forEach((j) => {
+                            if (!eraserOids.includes(j.qn.oid)) {
+                                eraserOids.push(j.qn.oid);
+                            }
+                        });
+                    }
+                });
+                await this.fCanvas.remove(...removeObjects);
+                fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "clear", oids: removeObjIds, eids: eraserOids, cid: clearId });
+            }
+            // console.log('__clearCanvas', current)
+            // if (current && current.objects.length) {
+            //     const curObjects = this.fCanvas.getObjects()
+            //     const curObj =JSON.parse(JSON.stringify(current))
+            //     curObj.objects.push(...curObjects) 
+            //     this.fCanvas.loadFromJSON(curObj)
+            // } else {
+            //     await this.fCanvas.loadFromJSON(current)
+            // }
+            this.fCanvas.requestRenderAll();
+        }
+        // 恢复被清除的内容
+        async __recoverClearCanvas(data, sync) {
+            const { objects, clearId } = data;
+            const oids = [];
+            const eraserOids = [];
+            if (objects) {
+                objects.forEach(obj => {
+                    obj.qn.sync = false;
+                    obj.qn.noHistoryStack = true;
+                    oids.push(obj.qn.oid);
+                    if (obj.eraser) {
+                        obj.eraser._objects ? obj.eraser.objects = obj.eraser._objects : null;
+                        const eraserObjects = obj.eraser.objects;
+                        eraserObjects.length && eraserObjects.forEach((j) => {
+                            if (!eraserOids.includes(j.qn.oid)) {
+                                eraserOids.push(j.qn.oid);
+                            }
+                        });
+                    }
+                });
+                const json = this.fCanvas.toJSON();
+                json.objects.push(...objects);
+                await this.fCanvas.loadFromJSON(JSON.parse(JSON.stringify(json)));
+                await this.fCanvas.requestRenderAll();
+                fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "rc", oids, cid: clearId, eids: eraserOids });
+            }
+        }
+        // 添加橡皮擦
+        async __addEraser(data, sync) {
+            const { objects } = data;
+            objects === null || objects === void 0 ? void 0 : objects.forEach((obj) => {
+                if (obj) {
+                    window.fabric.EraserBrush.prototype._renderEraserByPath.call(window.fabric.EraserBrush.prototype, this.fCanvas, obj);
+                    const syncOptions = getSyncOptions(obj);
+                    console.log('__addEraser:', obj);
+                    fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "ae", epid: obj.qn.oid, options: syncOptions });
+                }
+            });
+            this.fCanvas.requestRenderAll();
+        }
+        // 删除橡皮擦轨迹
+        async __removeEraser(data, sync) {
+            const { objects } = data;
+            objects === null || objects === void 0 ? void 0 : objects.forEach((eraserPath) => {
+                window.fabric.EraserBrush.prototype._removeEraserByPath.call(window.fabric.EraserBrush.prototype, this.fCanvas, eraserPath);
+                const epid = eraserPath.qn.oid;
+                eraserPath.qn.t = 're';
+                // fabric.util.socket && fabric.util.socket.draw(Object.assign({},{epid}, {qn: eraserPath.qn}))
+                fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "re", epid });
+            });
+            this.fCanvas.requestRenderAll();
+        }
+        // 设置背景色
+        __setBackgroundColor(data) {
+            const { current } = data;
+            this.fCanvas.setBgColorOrBgImgForUndoRedo(current, false);
+            console.log('__setBackgroundColor', data);
+            this.fCanvas.requestRenderAll();
+            fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "bgColor", color: current });
+        }
+        // 设置背景图片
+        __setBackgroundImage(data) {
+            const { current } = data;
+            this.fCanvas.setBgColorOrBgImgForUndoRedo(current, false);
+            console.log('__setBackgroundImage', data);
+            this.fCanvas.requestRenderAll();
+            fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "bgImg", url: current === null || current === void 0 ? void 0 : current._element.currentSrc });
+        }
+        /**
+         * 获取当前页stack
+         * @returns
+         */
+        _getCurrentStack() {
+            // console.log('====当前pageId====', this.pages.currentPageId)
+            const curStack = this.stackMap.get(this.pages.currentPageId) || { currentIndex: -1, stack: [] };
+            // console.log('获取当前页stack', curStack)
+            return curStack;
+        }
+        /**
+         * 更新当前当前页stack
+         * @param stack
+         */
+        _setCurrentStack(stack) {
+            this.stackMap.set(this.pages.currentPageId, stack);
+        }
+        // 获取设备适配后的object
+        _getRatioObject(object) {
+            const curWidth = this.fCanvas.getWidth();
+            const curHeight = this.fCanvas.getHeight();
+            const { qn } = object;
+            const ratioX = curWidth / qn.w;
+            // const ratioY = curHeight / qn.h;
+            object.scaleX && (object.scaleX = (object.scaleX || 1) * ratioX);
+            object.left && (object.left = object.left * ratioX);
+            object.scaleY && (object.scaleY = (object.scaleY || 1) * ratioX);
+            object.top && (object.top = object.top * ratioX);
+            qn.w = curWidth;
+            qn.h = curHeight;
+            console.log('undo redo ratio', object);
+            return object;
+        }
+    }
+    window.fabric.util.History = History;
+})();
+
+(function () {
+    class Statistics {
+        constructor() {
+            // 最近十次自由绘平均耗时
+            this._recentlyPathTimeCollect = [];
+            this._recentlyPathTime = 0;
+            // 当前自由绘耗时
+            this._pathStartTimestamp = 0;
+            this._lastPathTime = 0;
+            // 是否统计耗时
+            this.enableStatistics = false;
+        }
+        toggleStatistics(flag) {
+            if (flag === false) {
+                this._recentlyPathTimeCollect = [];
+                this._recentlyPathTime = 0;
+                this._lastPathTime = 0;
+            }
+            this.enableStatistics = flag;
+        }
+        // 记录提笔开始时间
+        recordPathStartTime(time) {
+            this._pathStartTimestamp = time;
+        }
+        // 计算path 绘制消耗时间
+        calcPathTime(time) {
+            this._lastPathTime = time - this._pathStartTimestamp;
+            if (this._recentlyPathTimeCollect.length < 10) {
+                this._recentlyPathTimeCollect.push(this._lastPathTime);
+            }
+            else {
+                this._recentlyPathTimeCollect.shift();
+                this._recentlyPathTimeCollect.push(this._lastPathTime);
+            }
+            const totalTime = this._recentlyPathTimeCollect.reduce((cur, pre) => {
+                return cur + pre;
+            }, 0);
+            this._recentlyPathTime = totalTime / this._recentlyPathTimeCollect.length;
+        }
+        getStat() {
+            return {
+                currentPathTime: this._lastPathTime,
+                recentlyPathTime: this._recentlyPathTime
+            };
+        }
+    }
+    window.fabric.util.statistics = new Statistics();
+})();
+
+//@ts-nocheck
+(function (global) {
+    var fabric = global.fabric || (global.fabric = {});
+    /**
+     * Wrapper around `console.log` (when available)
+     * @param {*} [values] Values to log
+     */
+    fabric.log = console.log;
+    /**
+     * Wrapper around `console.warn` (when available)
+     * @param {*} [values] Values to log as a warning
+     */
+    fabric.warn = console.warn;
+})(typeof exports !== 'undefined' ? exports : window);
+
+//@ts-nocheck
 /**
  * Returns CSS rules for a given SVG document
  * @param {SVGDocument} doc SVG document to parse
@@ -4935,10 +5497,6 @@ function getGradientDefs(doc) {
     }
     return gradientDefs;
 }
-
-//@ts-nocheck
-fabric.util.array = arrayUtils;
-const { cos, sin, getElementOffset, removeFromArray, toFixed, transformPoint, invertTransform, getNodeCanvas, createCanvasElement, toDataURL, multiplyTransformMatrices, applyTransformToObject, degreesToRadians: degreesToRadians$1, enlivenObjects, enlivenObjectEnlivables, cleanUpJsdomNode, loadImage, setImageSmoothing, getById, addClass, parsePreserveAspectRatioAttribute, findScaleToFit, findScaleToCover, stylesFromArray, stylesToArray, hasStyleChanged, getPathSegmentsInfo, getPointOnPath, string: { graphemeSplit, capitalize, escapeXml }, projectStrokeOnPoints, array: { min, max }, makePathSimpler, parsePath, joinPath, getBoundsOfCurve, limitDimsByArea, capValue: clamp, populateWithProperties, qrDecompose, saveObjectTransform, resetObjectTransform, object: { clone, extend }, matrixToSVG, sizeAfterTransform, animate, animateColor, requestAnimFrame, cancelAnimFrame, rotateVector, getRandomInt, getSmoothPathFromPoints, parseUnit, toArray, request, addListener, removeListener, isTouchEvent, sendPointToPlane, radiansToDegrees, setStyle, calcRotateMatrix, makeBoundingBoxFromPoints, composeMatrix, rotatePoint, } = fabric.util;
 
 //@ts-nocheck
 /**
@@ -7741,7 +8299,7 @@ Object.assign(fabric, {
     fabric.Shadow.reOffsetsAndBlur = /(?:\s|^)(-?\d+(?:\.\d*)?(?:px)?(?:\s?|$))?(-?\d+(?:\.\d*)?(?:px)?(?:\s?|$))?(\d+(?:\.\d*)?(?:px)?)?(?:\s?|$)(?:$|\s)/;
 })(typeof exports !== 'undefined' ? exports : window);
 
-//@ts-nocheck
+/* eslint-disable no-var */
 (function (global) {
     // aliases for faster resolution
     var fabric = global.fabric, extend = fabric.util.object.extend, getElementOffset = fabric.util.getElementOffset, toFixed = fabric.util.toFixed, transformPoint = fabric.util.transformPoint, invertTransform = fabric.util.invertTransform, getNodeCanvas = fabric.util.getNodeCanvas, createCanvasElement = fabric.util.createCanvasElement, CANVAS_INIT_ERROR = new Error('Could not initialize `canvas` element');
@@ -7787,6 +8345,10 @@ Object.assign(fabric, {
          * @default
          */
         backgroundImage: null,
+        /**
+         * 保存上一次操作的背景色或者背景图片， undo/redo 便于undo/redo时取值
+         */
+        lastBackgroundColorOrImage: '',
         /**
          * Overlay color of canvas instance.
          * @since 1.3.9
@@ -7904,6 +8466,12 @@ Object.assign(fabric, {
          * @type fabric.Object
          */
         clipPath: undefined,
+        /**
+         * 用于控制是否清除上层画布, 避免收消息时上层画布被清除。
+         *  1. 只有自己绘制的时候才需要清除上层画布
+         *  2. 收消息绘制时无需清除上层画布
+         */
+        needClearTopContext: false,
         /**
          * @private
          * @param {HTMLElement | String} el &lt;canvas> element to initialize instance on
@@ -8093,6 +8661,87 @@ Object.assign(fabric, {
             }
             return this;
         },
+        setBackgroundImage: async function (urlOrImg, sync = true, color) {
+            this.lastBackgroundColorOrImage || this.backgroundImage;
+            // undo/redo 传入的是fabric.Image
+            if (urlOrImg instanceof fabric.Image) {
+                this.lastBackgroundColorOrImage = urlOrImg;
+                this.set({
+                    backgroundImage: urlOrImg
+                });
+                return;
+            }
+            const img = await window.fabric.Image.fromURL(urlOrImg, {
+                crossOrigin: true,
+            });
+            this.set({
+                backgroundImage: img,
+                backgroundColor: ''
+            });
+            // sync && urlOrImg && fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "bgImg", url: urlOrImg, color })
+            // 添加历史栈
+            // sync && urlOrImg && fabric.util.history && fabric.util.history.push({
+            //   type: 'bgImage',
+            //   current: img,
+            //   original,
+            // })
+            // 保存上一次操作的图片
+            urlOrImg && (this.lastBackgroundColorOrImage = img);
+            this.renderOnAddRemove && await this.requestRenderAll();
+            return this;
+        },
+        setBackgroundColor: async function (color, sync = true) {
+            this.lastBackgroundColorOrImage || this.backgroundColor;
+            this.set({
+                backgroundColor: color,
+                backgroundImage: ''
+            });
+            // sync && color && fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "bgColor", color })
+            // 添加历史栈
+            // sync && color && fabric.util.history && fabric.util.history.push({
+            //   type: 'bgColor',
+            //   current: color,
+            //   original
+            // })
+            color && (this.lastBackgroundColorOrImage = color);
+            this.renderOnAddRemove && await this.requestRenderAll();
+            return this;
+        },
+        setBgColorOrBgImgForUndoRedo(colorOrImg, sync) {
+            if (typeof colorOrImg === 'string') {
+                this.setBackgroundColor(colorOrImg, sync);
+            }
+            else {
+                this.setBackgroundImage(colorOrImg, sync);
+            }
+        },
+        /**
+        * @private
+        * @param {String} property Property to set ({@link fabric.StaticCanvas#backgroundImage|backgroundImage}
+        * or {@link fabric.StaticCanvas#overlayImage|overlayImage})
+        * @param {(fabric.Image|String|null)} image fabric.Image instance, URL of an image or null to set background or overlay to
+        * @param {Function} callback Callback to invoke when image is loaded and set as background or overlay. The first argument is the created image, the second argument is a flag indicating whether an error occurred or not.
+        * @param {Object} [options] Optional options to set for the {@link fabric.Image|image}.
+        */
+        __setBgOverlayImage: function (property, image, callback, options) {
+            if (typeof image === 'string') {
+                fabric.util.loadImage(image, function (img, isError) {
+                    if (img) {
+                        var instance = new fabric.Image(img, options);
+                        this[property] = instance;
+                        instance.canvas = this;
+                    }
+                    callback && callback(img, isError);
+                }, this, options && options.crossOrigin);
+            }
+            else {
+                options && image.setOptions(options);
+                this[property] = image;
+                image && (image.canvas = this);
+                callback && callback(image, false);
+            }
+            return this;
+        },
         /**
          * Helper for setting width/height
          * @private
@@ -8229,7 +8878,15 @@ Object.assign(fabric, {
          */
         add: function () {
             fabric.Collection.add.call(this, arguments, this._onObjectAdded);
+            console.log('canvas add', arguments);
+            // 自由绘时renderAll会导致耗时， 需要手动renderOne
+            if (arguments.length === 1 && arguments[0].type === 'path') {
+                return this;
+            }
             arguments.length > 0 && this.renderOnAddRemove && this.requestRenderAll();
+            if (arguments.length && arguments[0].qn && arguments[0].qn.sync) {
+                this.needClearTopContext = true;
+            }
             return this;
         },
         /**
@@ -8262,6 +8919,8 @@ Object.assign(fabric, {
          */
         _onObjectAdded: function (obj) {
             this.stateful && obj.setupState();
+            // flag 画布是否已清除
+            fabric._tempIsCleared = false;
             if (obj.canvas && obj.canvas !== this) {
                 /* _DEV_MODE_START_ */
                 console.warn('fabric.Canvas: trying to add an object that belongs to a different canvas.\n' +
@@ -8271,6 +8930,30 @@ Object.assign(fabric, {
             }
             obj._set('canvas', this);
             obj.setCoords();
+            // qn modified
+            // 同步新增object
+            const options = getSyncOptions(obj);
+            options.qn.t = obj.type;
+            if (obj.qn.sync) {
+                if (obj.type === 'path') {
+                    options.qn.psize = obj.path.length;
+                }
+                console.log('========== sync ===========', options);
+                fabric.util.socket && fabric.util.socket.draw(options);
+            }
+            else {
+                // shape 的中间状态保存， 在mouseup协同
+                if (['rect', 'circle', 'triangle', 'line'].includes(obj.type)) {
+                    console.log('fabric._option', options);
+                    fabric._shapeOption = options; // 保存shape的参数, 然后在mouseup的时候进行协同
+                }
+            }
+            if (obj.qn.t === 'path' || obj.qn.t === 'image') {
+                !obj.qn.noHistoryStack && fabric.util.history && fabric.util.history.push({
+                    type: 'add',
+                    objects: [obj]
+                });
+            }
             this.fire('object:added', { target: obj });
             obj.fire('added', { target: this });
         },
@@ -8281,6 +8964,17 @@ Object.assign(fabric, {
         _onObjectRemoved: function (obj) {
             obj._set('canvas', undefined);
             this.fire('object:removed', { target: obj });
+            // qn modified
+            // 异步判断当前obj是否还存在，
+            if (obj.qn.sync && !fabric._tempIsCleared) {
+                fabric.util.socket && fabric.util.socket.sendCmd({ cmd: 'remove', qn: obj.qn });
+            }
+            // 添加历史栈
+            // noHistoryStack 不入栈标识， 默认false标识需要入栈， 批量删除用
+            obj.qn.sync && !obj.qn.noHistoryStack && !fabric._tempIsCleared && !fabric._tmpDrawingObj && fabric.util.history && fabric.util.history.push({
+                type: 'remove',
+                objects: [obj]
+            });
             obj.fire('removed', { target: this });
         },
         /**
@@ -8290,7 +8984,15 @@ Object.assign(fabric, {
          * @chainable
          */
         clearContext: function (ctx) {
-            ctx.clearRect(0, 0, this.width, this.height);
+            const ctxClassList = Array.from(ctx.canvas.classList);
+            if (ctxClassList.includes('uppper-canvas')) {
+                this.needClearTopContext && ctx.clearRect(0, 0, this.width, this.height);
+                // ctx.clearRect(0, 0, this.width, this.height);
+                this.needClearTopContext = false;
+            }
+            else {
+                ctx.clearRect(0, 0, this.width, this.height);
+            }
             return this;
         },
         /**
@@ -8307,10 +9009,10 @@ Object.assign(fabric, {
          */
         clear: function () {
             this.remove.apply(this, this.getObjects());
-            this.backgroundImage = null;
+            // this.backgroundImage = null;
             this.overlayImage = null;
-            this.backgroundColor = '';
-            this.overlayColor = '';
+            // this.backgroundColor = '';
+            // this.overlayColor = '';
             if (this._hasITextHandlers) {
                 this.off('mouse:up', this._mouseUpITextHandler);
                 this._iTextInstances = null;
@@ -8421,6 +9123,37 @@ Object.assign(fabric, {
             }
             this.fire('after:render', { ctx: ctx, });
         },
+        renderCanvasByOne: function (ctx, object) {
+            this.viewportTransform; var path = this.clipPath;
+            this.cancelRequestedRender();
+            this.isRendering = 1;
+            this.calcViewportBoundaries();
+            // fabric.util.setImageSmoothing(ctx, this.imageSmoothingEnabled);
+            ctx.patternQuality = 'best';
+            this.fire('before:render', { ctx: ctx, });
+            ctx.save();
+            //apply viewport transform once for all rendering process
+            // ctx.transform(v[0], v[1], v[2], v[3], v[4], v[5]);
+            this._renderObject(ctx, object);
+            ctx.restore();
+            if (!this.controlsAboveOverlay && this.interactive) {
+                this.drawControls(ctx);
+            }
+            if (path) {
+                path._set('canvas', this);
+                // needed to setup a couple of variables
+                path.shouldCache();
+                path._transformDone = true;
+                path.renderCache({ forClipping: true });
+                this.drawClipPathOnCanvas(ctx);
+            }
+            this._renderOverlay(ctx);
+            if (this.controlsAboveOverlay && this.interactive) {
+                this.drawControls(ctx);
+            }
+            this.isRendering = 0;
+            this.fire('after:render', { ctx: ctx, });
+        },
         /**
          * Paint the cached clipPath on the lowerCanvasEl
          * @param {CanvasRenderingContext2D} ctx Context to render on
@@ -8447,6 +9180,9 @@ Object.assign(fabric, {
             for (i = 0, len = objects.length; i < len; ++i) {
                 objects[i] && objects[i].render(ctx);
             }
+        },
+        _renderObject: function (ctx, object) {
+            object.renderByOne(ctx);
         },
         /**
          * @private
@@ -8478,7 +9214,7 @@ Object.assign(fabric, {
                 ctx.fill();
                 ctx.restore();
             }
-            if (object) {
+            if (object && typeof object === 'object') {
                 ctx.save();
                 if (needsVpt) {
                     ctx.transform(v[0], v[1], v[2], v[3], v[4], v[5]);
@@ -9353,9 +10089,9 @@ Object.assign(fabric, {
     });
 })(typeof exports !== 'undefined' ? exports : window);
 
-//@ts-nocheck
+/* eslint-disable no-var */
 (function (global) {
-    const fabric = global.fabric;
+    var fabric = global.fabric;
     /**
      * PencilBrush class
      * @class fabric.PencilBrush
@@ -9382,9 +10118,6 @@ Object.assign(fabric, {
          * @type {'altKey' | 'shiftKey' | 'ctrlKey' | 'none' | undefined | null}
          */
         straightLineKey: 'shiftKey',
-        svgPaths: [],
-        svgPathIndex: 0,
-        batchUpdateSvgPathNum: 0,
         /**
          * Constructor
          * @param {fabric.Canvas} canvas
@@ -9402,9 +10135,8 @@ Object.assign(fabric, {
          * @param {Object} pointer
          */
         _drawSegment: function (ctx, p1, p2) {
-            const midPoint = p1.midPointFrom(p2);
-            // ctx.quadraticCurveTo(p1.x, p1.y, midPoint.x, midPoint.y);
-            this._addSvgPath(['Q', p1.x, p1.y, midPoint.x, midPoint.y]);
+            var midPoint = p1.midPointFrom(p2);
+            ctx.quadraticCurveTo(p1.x, p1.y, midPoint.x, midPoint.y);
             return midPoint;
         },
         /**
@@ -9420,8 +10152,7 @@ Object.assign(fabric, {
             // capture coordinates immediately
             // this allows to draw dots (when movement never occurs)
             this._captureDrawingPath(pointer);
-            this._addSvgPath(['M', pointer.x, pointer.y]);
-            // this._render();
+            this._render();
         },
         /**
          * Invoked on mouse move
@@ -9443,17 +10174,16 @@ Object.assign(fabric, {
                     this._render();
                 }
                 else {
-                    const points = this._points, length = points.length, ctx = this.canvas.contextTop;
+                    var points = this._points, length = points.length, ctx = this.canvas.contextTop;
                     // draw the curve update
-                    // this._saveAndTransform(ctx);
-                    // if (this.oldEnd) {
-                    //   ctx.beginPath();
-                    //   ctx.moveTo(this.oldEnd.x, this.oldEnd.y);
-                    // }
-                    // this.oldEnd = this._drawSegment(ctx, points[length - 2], points[length - 1], true);
-                    // ctx.stroke();
-                    // ctx.restore();
-                    this._drawSegment(ctx, points[length - 2], points[length - 1], true);
+                    this._saveAndTransform(ctx);
+                    if (this.oldEnd) {
+                        ctx.beginPath();
+                        ctx.moveTo(this.oldEnd.x, this.oldEnd.y);
+                    }
+                    this.oldEnd = this._drawSegment(ctx, points[length - 2], points[length - 1], true);
+                    ctx.stroke();
+                    ctx.restore();
                 }
             }
         },
@@ -9466,8 +10196,7 @@ Object.assign(fabric, {
             }
             this.drawStraightLine = false;
             this.oldEnd = undefined;
-            // this._finalizeAndAddPath();
-            this._addSvgPath(null, 'end');
+            this._finalizeAndAddPath();
             return false;
         },
         /**
@@ -9475,7 +10204,7 @@ Object.assign(fabric, {
          * @param {Object} pointer Actual mouse position related to the canvas.
          */
         _prepareForDrawing: function (pointer) {
-            const p = new Point(pointer.x, pointer.y);
+            var p = new Point(pointer.x, pointer.y);
             this._reset();
             this._addPoint(p);
             this.canvas.contextTop.moveTo(p.x, p.y);
@@ -9495,34 +10224,6 @@ Object.assign(fabric, {
             this._points.push(point);
             return true;
         },
-        _addSvgPath: function (svgPath, flag) {
-            /**
-             *
-             * 批量绘制方案
-             *
-             */
-            //绘制结束
-            if (flag === 'end') {
-                this._drawPath(this.svgPaths, flag);
-                this.svgPathIndex = 0;
-                return;
-            }
-            // 第一次直接绘制
-            if (!this.svgPaths.length || this.svgPaths.length < this.batchUpdateSvgPathNum) {
-                this.svgPaths.push(svgPath);
-                this._drawPath(this.svgPaths, flag);
-                return;
-            }
-            else {
-                this.svgPaths.push(svgPath);
-            }
-            // 依据新增点数执行绘制
-            const svgPathsLen = this.svgPaths.length;
-            if (svgPathsLen - this.svgPathIndex >= this.batchUpdateSvgPathNum) {
-                this.svgPathIndex = this.svgPaths.length;
-                this._drawPath(this.svgPaths);
-            }
-        },
         /**
          * Clear points array and set contextTop canvas style.
          * @private
@@ -9538,7 +10239,7 @@ Object.assign(fabric, {
          * @param {Object} pointer Actual mouse position related to the canvas.
          */
         _captureDrawingPath: function (pointer) {
-            const pointerPoint = new Point(pointer.x, pointer.y);
+            var pointerPoint = new Point(pointer.x, pointer.y);
             return this._addPoint(pointerPoint);
         },
         /**
@@ -9547,7 +10248,7 @@ Object.assign(fabric, {
          * @param {CanvasRenderingContext2D} [ctx]
          */
         _render: function (ctx) {
-            let i, len, p1 = this._points[0], p2 = this._points[1];
+            var i, len, p1 = this._points[0], p2 = this._points[1];
             ctx = ctx || this.canvas.contextTop;
             this._saveAndTransform(ctx);
             ctx.beginPath();
@@ -9556,7 +10257,7 @@ Object.assign(fabric, {
             //then we should be drawing a dot. A path isn't drawn between two identical dots
             //that's why we set them apart a bit
             if (this._points.length === 2 && p1.x === p2.x && p1.y === p2.y) {
-                const width = this.width / 1000;
+                var width = this.width / 1000;
                 p1 = new Point(p1.x, p1.y);
                 p2 = new Point(p2.x, p2.y);
                 p1.x -= width;
@@ -9582,9 +10283,9 @@ Object.assign(fabric, {
          * @param {Array} points Array of points
          * @return {(string|number)[][]} SVG path commands
          */
-        convertPointsToSVGPath: function (points) {
-            const correction = this.width / 1000;
-            return fabric.util.getSmoothPathFromPoints(points, correction);
+        convertPointsToSVGPath: function (points, sync = true) {
+            var correction = this.width / 1000;
+            return fabric.util.getSmoothPathFromPoints(points, correction, sync);
         },
         /**
          * @private
@@ -9592,7 +10293,7 @@ Object.assign(fabric, {
          * @returns {boolean}
          */
         _isEmptySVGPath: function (pathData) {
-            const pathString = fabric.util.joinPath(pathData);
+            var pathString = fabric.util.joinPath(pathData);
             return pathString === 'M 0 0 Q 0 0 0 0 L 0 0';
         },
         /**
@@ -9601,7 +10302,7 @@ Object.assign(fabric, {
          * @return {fabric.Path} Path to add on canvas
          */
         createPath: function (pathData) {
-            const path = new fabric.Path(pathData, {
+            var path = new fabric.Path(pathData, {
                 fill: null,
                 stroke: this.color,
                 strokeWidth: this.width,
@@ -9623,7 +10324,7 @@ Object.assign(fabric, {
             if (points.length <= 2) {
                 return points;
             }
-            let zoom = this.canvas.getZoom(), adjustedDistance = Math.pow(distance / zoom, 2), i, l = points.length - 1, lastPoint = points[0], newPoints = [lastPoint], cDistance;
+            var zoom = this.canvas.getZoom(), adjustedDistance = Math.pow(distance / zoom, 2), i, l = points.length - 1, lastPoint = points[0], newPoints = [lastPoint], cDistance;
             for (i = 1; i < l - 1; i++) {
                 cDistance = Math.pow(lastPoint.x - points[i].x, 2) + Math.pow(lastPoint.y - points[i].y, 2);
                 if (cDistance >= adjustedDistance) {
@@ -9644,12 +10345,12 @@ Object.assign(fabric, {
          * and add it to the fabric canvas.
          */
         _finalizeAndAddPath: function () {
-            const ctx = this.canvas.contextTop;
+            var ctx = this.canvas.contextTop;
             ctx.closePath();
             if (this.decimate) {
                 this._points = this.decimatePoints(this._points, this.decimate);
             }
-            const pathData = this.convertPointsToSVGPath(this._points);
+            var pathData = this.convertPointsToSVGPath(this._points);
             if (this._isEmptySVGPath(pathData)) {
                 // do not create 0 width/height paths, as they are
                 // rendered inconsistently across browsers
@@ -9658,7 +10359,7 @@ Object.assign(fabric, {
                 this.canvas.requestRenderAll();
                 return;
             }
-            const path = this.createPath(pathData);
+            var path = this.createPath(pathData);
             this.canvas.clearContext(this.canvas.contextTop);
             this.canvas.fire('before:path:created', { path: path });
             this.canvas.add(path);
@@ -9667,58 +10368,7 @@ Object.assign(fabric, {
             this._resetShadow();
             // fire event 'path' created
             this.canvas.fire('path:created', { path: path });
-        },
-        // 批量重新createPath
-        _drawPath: function (svgPaths, flag) {
-            console.time('====drawPath====');
-            // console.log('pathData', pathData);
-            // var pathData = this.svgPaths;
-            // if (this._isEmptySVGPath(pathData)) {
-            //   // do not create 0 width/height paths, as they are
-            //   // rendered inconsistently across browsers
-            //   // Firefox 4, for example, renders a dot,
-            //   // whereas Chrome 10 renders nothing
-            //   this.canvas.requestRenderAll();
-            //   return;
-            // }
-            if (flag === 'end') {
-                // this.canvas.requestRenderAll();
-                fabric._tempFreePath = null;
-                return;
-            }
-            if (fabric._tempFreePath) {
-                console.time('==this.canvas.remove(fabric._tempFreePath)==');
-                fabric._tempFreePath._cacheCanvas = null;
-                fabric._tempFreePath._cacheContext = null;
-                this.canvas.remove(fabric._tempFreePath);
-                console.timeEnd('==this.canvas.remove(fabric._tempFreePath)==');
-                fabric._tempFreePath = null;
-            }
-            // this.canvas.clearContext(this.canvas.contextTop);
-            const path = this.createPath(svgPaths);
-            this.canvas.fire('before:path:created', { path: path });
-            console.log('==draw add path==', path);
-            this.canvas.add(path);
-            this.canvas.requestRenderAll();
-            path.setCoords();
-            this._resetShadow();
-            // path._render(this.canvas.contextContainer);
-            if (flag !== 'end') {
-                fabric._tempFreePath = path;
-                // 绘制完成
-                // debugger;
-                // console.log('====绘制完成====');
-                // this._drawPath(this.svgPaths);
-            }
-            else {
-                path.setCoords();
-                this._resetShadow();
-                // fabric._tempFreePath = null;
-                // this.canvas.clearContext(this.canvas.contextTop);
-            }
-            // fire event 'path' created
-            this.canvas.fire('path:created', { path: path });
-        },
+        }
     });
 })(typeof exports !== 'undefined' ? exports : window);
 
@@ -10088,7 +10738,635 @@ Object.assign(fabric, {
     });
 })(typeof exports !== 'undefined' ? exports : window);
 
-//@ts-nocheck
+/* eslint-disable no-var */
+(function (global) {
+    var fabric = global.fabric;
+    /**
+     * PencilBrush class
+     * @class fabric.PencilBrush
+     * @extends fabric.BaseBrush
+     */
+    fabric.FreeDrawBrush = fabric.util.createClass(fabric.BaseBrush, /** @lends fabric.PencilBrush.prototype */ {
+        /**
+         * Discard points that are less than `decimate` pixel distant from each other
+         * @type Number
+         * @default 0.4
+         */
+        decimate: 0.4,
+        /**
+         * Draws a straight line between last recorded point to current pointer
+         * Used for `shift` functionality
+         *
+         * @type boolean
+         * @default false
+         */
+        drawStraightLine: false,
+        /**
+         * The event modifier key that makes the brush draw a straight line.
+         * If `null` or 'none' or any other string that is not a modifier key the feature is disabled.
+         * @type {'altKey' | 'shiftKey' | 'ctrlKey' | 'none' | undefined | null}
+         */
+        straightLineKey: 'shiftKey',
+        svgPaths: [],
+        svgPathIndex: 0,
+        batchUpdateSvgPathNum: 0,
+        lastPoint: [],
+        lastPath: null,
+        /**
+         * Constructor
+         * @param {fabric.Canvas} canvas
+         * @return {fabric.PencilBrush} Instance of a pencil brush
+         */
+        initialize: function (canvas) {
+            this.canvas = canvas;
+            this._points = [];
+            this.svgPaths = [];
+        },
+        needsFullRender: function () {
+            return this.callSuper('needsFullRender') || this._hasStraightLine;
+        },
+        /**
+         * Invoked inside on mouse down and mouse move
+         * @param {Object} pointer
+         */
+        _drawSegment: function (ctx, p1, p2) {
+            var midPoint = p1.midPointFrom(p2);
+            ctx.quadraticCurveTo(p1.x, p1.y, midPoint.x, midPoint.y);
+            this._addSvgPath(['Q', p1.x, p1.y, midPoint.x, midPoint.y]);
+            return midPoint;
+        },
+        /**
+         * Invoked on mouse down
+         * @param {Object} pointer
+         */
+        onMouseDown: function (pointer, options) {
+            if (!this.canvas._isMainEvent(options.e)) {
+                return;
+            }
+            this.drawStraightLine = options.e[this.straightLineKey];
+            this._prepareForDrawing(pointer);
+            // capture coordinates immediately
+            // this allows to draw dots (when movement never occurs)
+            this._captureDrawingPath(pointer);
+            this._addSvgPath(['M', pointer.x, pointer.y]);
+            // if (fabric.lastPath) {
+            //   this.canvas.requestRenderAll()
+            //   this.canvas.clearContext(this.canvas.contextTop);
+            //   console.log('clear topcontext')
+            // }
+            this._render();
+        },
+        /**
+         * Invoked on mouse move
+         * @param {Object} pointer
+         */
+        onMouseMove: function (pointer, options) {
+            if (!this.canvas._isMainEvent(options.e)) {
+                return;
+            }
+            this.drawStraightLine = options.e[this.straightLineKey];
+            if (this.limitedToCanvasSize === true && this._isOutSideCanvas(pointer)) {
+                return;
+            }
+            if (this._captureDrawingPath(pointer) && this._points.length > 1) {
+                if (this.needsFullRender()) {
+                    // redraw curve
+                    // clear top canvas
+                    this.canvas.clearContext(this.canvas.contextTop);
+                    this._render();
+                }
+                else {
+                    var points = this._points, length = points.length, ctx = this.canvas.contextTop;
+                    // draw the curve update
+                    this._saveAndTransform(ctx);
+                    if (this.oldEnd) {
+                        ctx.beginPath();
+                        ctx.moveTo(this.oldEnd.x, this.oldEnd.y);
+                    }
+                    this.oldEnd = this._drawSegment(ctx, points[length - 2], points[length - 1], true);
+                    ctx.stroke();
+                    ctx.restore();
+                    // this._drawSegment(ctx, points[length - 2], points[length - 1], true)
+                }
+            }
+        },
+        /**
+         * Invoked on mouse up
+         */
+        onMouseUp: function (options) {
+            if (!this.canvas._isMainEvent(options.e)) {
+                return true;
+            }
+            const ctx = this.canvas.contextTop;
+            // if (this._captureDrawingPath(option.pointer) && this.oldEnd) {
+            // }
+            ctx.beginPath();
+            ctx.moveTo(options.pointer.x, options.pointer.y);
+            // this.oldEnd = this._drawSegment(ctx, points[length - 2], points[length - 1], true);
+            ctx.stroke();
+            ctx.restore();
+            fabric.util.statistics.enableStatistics && fabric.util.statistics.recordPathStartTime(performance.now());
+            this.drawStraightLine = false;
+            this.oldEnd = undefined;
+            console.log('mouseup', options);
+            this._addSvgPath(['L', options.pointer.x, options.pointer.y]);
+            this._finalizeAndAddPath();
+            // this._addSvgPath(null, 'end')
+            return false;
+        },
+        /**
+         * @private
+         * @param {Object} pointer Actual mouse position related to the canvas.
+         */
+        _prepareForDrawing: function (pointer) {
+            var p = new Point(pointer.x, pointer.y);
+            this._reset();
+            this._addPoint(p);
+            this.canvas.contextTop.moveTo(p.x, p.y);
+        },
+        /**
+         * @private
+         * @param {Point} point Point to be added to points array
+         */
+        _addPoint: function (point) {
+            if (this._points.length > 1 && point.eq(this._points[this._points.length - 1])) {
+                return false;
+            }
+            if (this.drawStraightLine && this._points.length > 1) {
+                this._hasStraightLine = true;
+                this._points.pop();
+            }
+            this._points.push(point);
+            return true;
+        },
+        _addSvgPath: function (svgPath, flag) {
+            /**
+             *
+             * 批量绘制方案
+             *
+             */
+            //绘制结束
+            // if (flag === 'end') {
+            //   this._drawPath(this.svgPaths, flag);
+            //   this.svgPathIndex = 0;
+            //   return;
+            // }
+            // // 第一次直接绘制
+            // if (!this.svgPaths.length || this.svgPaths.length < this.batchUpdateSvgPathNum) {
+            //   this.svgPaths.push(svgPath);
+            //   this._drawPath(this.svgPaths, flag);
+            //   return;
+            // }
+            // else {
+            //   this.svgPaths.push(svgPath);
+            // }
+            // // 依据新增点数执行绘制
+            // var svgPathsLen = this.svgPaths.length;
+            // if (svgPathsLen - this.svgPathIndex >= this.batchUpdateSvgPathNum) {
+            //   this.svgPathIndex = this.svgPaths.length;
+            //   this._drawPath(this.svgPaths);
+            // }
+            // qn modified
+            if (!this.svgPaths.length) {
+                // fabric.freeDrawObject 挂载当前path的qn
+                fabric.freeDrawObject = fabric.util.genQn({ t: 'fp' });
+            }
+            this.svgPaths.push(svgPath);
+            // 生成path的时候socket同步
+            fabric.util.socket && fabric.util.socket.draw({ qn: fabric.freeDrawObject, index: this.svgPaths.length, path: svgPath });
+        },
+        /**
+         * Clear points array and set contextTop canvas style.
+         * @private
+         */
+        _reset: function () {
+            this._points = [];
+            this.svgPaths = [];
+            this._setBrushStyles(this.canvas.contextTop);
+            this._setShadow();
+            this._hasStraightLine = false;
+        },
+        /**
+         * @private
+         * @param {Object} pointer Actual mouse position related to the canvas.
+         */
+        _captureDrawingPath: function (pointer) {
+            var pointerPoint = new Point(pointer.x, pointer.y);
+            return this._addPoint(pointerPoint);
+        },
+        /**
+         * Draw a smooth path on the topCanvas using quadraticCurveTo
+         * @private
+         * @param {CanvasRenderingContext2D} [ctx]
+         */
+        _render: function (ctx) {
+            var i, len, p1 = this._points[0], p2 = this._points[1];
+            ctx = ctx || this.canvas.contextTop;
+            this._saveAndTransform(ctx);
+            ctx.beginPath();
+            //if we only have 2 points in the path and they are the same
+            //it means that the user only clicked the canvas without moving the mouse
+            //then we should be drawing a dot. A path isn't drawn between two identical dots
+            //that's why we set them apart a bit
+            if (this._points.length === 2 && p1.x === p2.x && p1.y === p2.y) {
+                var width = this.width / 1000;
+                p1 = new Point(p1.x, p1.y);
+                p2 = new Point(p2.x, p2.y);
+                p1.x -= width;
+                p2.x += width;
+            }
+            ctx.moveTo(p1.x, p1.y);
+            for (i = 1, len = this._points.length; i < len; i++) {
+                // we pick the point between pi + 1 & pi + 2 as the
+                // end point and p1 as our control point.
+                this._drawSegment(ctx, p1, p2);
+                p1 = this._points[i];
+                p2 = this._points[i + 1];
+            }
+            // Draw last line as a straight line while
+            // we wait for the next point to be able to calculate
+            // the bezier control point
+            ctx.lineTo(p1.x, p1.y);
+            ctx.stroke();
+            ctx.restore();
+        },
+        /**
+         * Converts points to SVG path
+         * @param {Array} points Array of points
+         * @return {(string|number)[][]} SVG path commands
+         */
+        convertPointsToSVGPath: function (points) {
+            var correction = this.width / 1000;
+            return fabric.util.getSmoothPathFromPoints(points, correction);
+        },
+        /**
+         * @private
+         * @param {(string|number)[][]} pathData SVG path commands
+         * @returns {boolean}
+         */
+        _isEmptySVGPath: function (pathData) {
+            var pathString = fabric.util.joinPath(pathData);
+            return pathString === 'M 0 0 Q 0 0 0 0 L 0 0';
+        },
+        /**
+         * Creates fabric.Path object to add on canvas
+         * @param {(string|number)[][]} pathData Path data
+         * @return {fabric.Path} Path to add on canvas
+         */
+        createPath: function (pathData) {
+            var path = new fabric.Path(pathData, {
+                fill: null,
+                stroke: this.color,
+                strokeWidth: this.width,
+                strokeLineCap: this.strokeLineCap,
+                strokeMiterLimit: this.strokeMiterLimit,
+                strokeLineJoin: this.strokeLineJoin,
+                strokeDashArray: this.strokeDashArray,
+            });
+            if (this.shadow) {
+                this.shadow.affectStroke = true;
+                path.shadow = new fabric.Shadow(this.shadow);
+            }
+            return path;
+        },
+        /**
+         * Decimate points array with the decimate value
+         */
+        decimatePoints: function (points, distance) {
+            if (points.length <= 2) {
+                return points;
+            }
+            var zoom = this.canvas.getZoom(), adjustedDistance = Math.pow(distance / zoom, 2), i, l = points.length - 1, lastPoint = points[0], newPoints = [lastPoint], cDistance;
+            for (i = 1; i < l - 1; i++) {
+                cDistance = Math.pow(lastPoint.x - points[i].x, 2) + Math.pow(lastPoint.y - points[i].y, 2);
+                if (cDistance >= adjustedDistance) {
+                    lastPoint = points[i];
+                    newPoints.push(lastPoint);
+                }
+            }
+            /**
+             * Add the last point from the original line to the end of the array.
+             * This ensures decimate doesn't delete the last point on the line, and ensures the line is > 1 point.
+             */
+            newPoints.push(points[l]);
+            return newPoints;
+        },
+        /**
+         * On mouseup after drawing the path on contextTop canvas
+         * we use the points captured to create an new fabric path object
+         * and add it to the fabric canvas.
+         */
+        _finalizeAndAddPath: function () {
+            var ctx = this.canvas.contextTop;
+            ctx.closePath();
+            // if (this.decimate) {
+            //   this._points = this.decimatePoints(this._points, this.decimate);
+            // }
+            // var _pathData = this.convertPointsToSVGPath(this._points);
+            // console.log('convertPointsToSVGPath', _pathData)
+            var pathData = this.svgPaths;
+            console.log('pathData', pathData, this._points);
+            if (this._isEmptySVGPath(pathData)) {
+                // do not create 0 width/height paths, as they are
+                // rendered inconsistently across browsers
+                // Firefox 4, for example, renders a dot,
+                // whereas Chrome 10 renders nothing
+                this.canvas.requestRenderAll();
+                return;
+            }
+            // var path = this.createPath(pathData);
+            // this.canvas.clearContext(this.canvas.contextTop);
+            // this.canvas.fire('before:path:created', { path: path });
+            // this.canvas.add(path);
+            // this.canvas.requestRenderAll();
+            // path.setCoords();
+            // this._resetShadow();
+            var path = this.createPath(pathData);
+            this.canvas.fire('before:path:created', { path: path });
+            path.set('opacity', 0.1);
+            fabric.lastPath = path;
+            this.canvas.add(path);
+            fabric._freePathOnTopCanvas = false;
+            // 再下一帧中删除上层画布的path， 预期改善最后一笔的延迟
+            this.canvas.renderCanvasByOne(this.canvas.contextContainer, path);
+            // this.canvas.requestRenderAll();
+            path.setCoords();
+            this._resetShadow();
+            this.canvas.clearContext(this.canvas.contextTop);
+            // fire event 'path' created
+            this.canvas.fire('path:created', { path: path });
+        },
+        // 批量重新createPath
+        _drawPath: function (svgPaths, flag) {
+            console.time('====drawPath====');
+            // console.log('pathData', pathData);
+            // var pathData = this.svgPaths;
+            // if (this._isEmptySVGPath(pathData)) {
+            //   // do not create 0 width/height paths, as they are
+            //   // rendered inconsistently across browsers
+            //   // Firefox 4, for example, renders a dot,
+            //   // whereas Chrome 10 renders nothing
+            //   this.canvas.requestRenderAll();
+            //   return;
+            // }
+            if (flag === 'end') {
+                // this.canvas.requestRenderAll();
+                // fabric._tempFreePath._cacheCanvas = null;
+                // fabric._tempFreePath._cacheContext = null;
+                fabric._tempFreePath = null;
+                return;
+            }
+            if (fabric._tempFreePath) {
+                fabric._tempFreePath._cacheCanvas = null;
+                fabric._tempFreePath._cacheCanvas = null;
+                fabric._tempFreePath.canvas = null;
+                this.canvas.remove(fabric._tempFreePath);
+                fabric._tempFreePath = null;
+            }
+            // this.canvas.clearContext(this.canvas.contextTop);
+            var path = this.createPath(svgPaths);
+            this.canvas.fire('before:path:created', { path: path });
+            console.log('==draw add path==', path);
+            this.canvas.add(path);
+            this.canvas.requestRenderAll();
+            // path.setCoords();
+            // this._resetShadow();
+            // path._render(this.canvas.contextContainer);
+            if (flag !== 'end') {
+                fabric._tempFreePath = path;
+                // 绘制完成
+                // debugger;
+                // console.log('====绘制完成====');
+                // this._drawPath(this.svgPaths);
+            }
+            else {
+                path.setCoords();
+                this._resetShadow();
+            }
+            // fire event 'path' created
+            this.canvas.fire('path:created', { path: path });
+        },
+    });
+})(typeof exports !== 'undefined' ? exports : window);
+
+/* eslint-disable no-var */
+(function (global) {
+    var fabric = global.fabric;
+    /**
+     * PencilBrush class
+     * @class fabric.PencilBrush
+     * @extends fabric.BaseBrush
+     */
+    fabric.IntersectEraserBrush = fabric.util.createClass(fabric.BaseBrush, /** @lends fabric.PencilBrush.prototype */ {
+        /**
+         * The event modifier key that makes the brush draw a straight line.
+         * If `null` or 'none' or any other string that is not a modifier key the feature is disabled.
+         * @type {'altKey' | 'shiftKey' | 'ctrlKey' | 'none' | undefined | null}
+         */
+        straightLineKey: 'shiftKey',
+        /**
+         * Constructor
+         * @param {fabric.Canvas} canvas
+         * @return {fabric.PencilBrush} Instance of a pencil brush
+         */
+        initialize: function (canvas) {
+            this.canvas = canvas;
+            this._points = [];
+            this.intersectObjects = [];
+        },
+        /**
+         * Invoked on mouse down
+         * @param {Object} pointer
+         */
+        onMouseDown: function (pointer, options) {
+            if (!this.canvas._isMainEvent(options.e)) {
+                return;
+            }
+            this.canvas.clearContext(this.canvas.contextTop);
+            this._prepareForDrawing(pointer);
+            // capture coordinates immediately
+            // this allows to draw dots (when movement never occurs)
+            this._captureDrawingPath(pointer);
+        },
+        /**
+         * Invoked on mouse move
+         * @param {Object} pointer
+         */
+        onMouseMove: function (pointer, options) {
+            if (!this.canvas._isMainEvent(options.e)) {
+                return;
+            }
+            if (this.limitedToCanvasSize === true && this._isOutSideCanvas(pointer)) {
+                return;
+            }
+            // check and 
+            const needAdd = this._captureDrawingPath(pointer);
+            if (!needAdd)
+                return;
+            const points = JSON.parse(JSON.stringify(this._points));
+            const objects = this.canvas.getObjects();
+            const lastPoint = points[this._points.length - 2];
+            console.log('onmousemove _points', pointer, lastPoint, points);
+            const line = [[lastPoint.x, lastPoint.y], [pointer.x, pointer.y]];
+            console.log('onmousemove line', line);
+            for (let i = 0; i < objects.length; i++) {
+                const obj = objects[i];
+                const { oid } = obj.qn;
+                const includeItem = this.intersectObjects.find((item) => item.qn.oid === oid);
+                if (includeItem)
+                    continue;
+                const otherCoords = obj.lineCoords;
+                const lines = obj._getImageLines(otherCoords);
+                if (obj.qn.t !== 'path' && obj.containsPoint(pointer, lines)) {
+                    console.log('==obj.containsPoint==', obj, line);
+                    console.log('[非path 相交]');
+                    this.intersectObjects.push(obj);
+                    obj.set('opacity', 0.5);
+                    this.canvas.requestRenderAll();
+                }
+                console.log('[橡皮擦 已有元素判断]', obj);
+                if ((obj.qn.t === 'path' && (obj.checkPointHitPath3(line)))) {
+                    this.intersectObjects.push(obj);
+                    obj.set('opacity', 0.5);
+                    this.canvas.requestRenderAll();
+                }
+            }
+            console.log('this.intersectObjects', this.intersectObjects);
+        },
+        /**
+         * Invoked on mouse up
+         */
+        onMouseUp: function (options) {
+            if (!this.canvas._isMainEvent(options.e)) {
+                return true;
+            }
+            this._finalizeAndCheckIntersect();
+            return false;
+        },
+        /**
+         * @private
+         * @param {Object} pointer Actual mouse position related to the canvas.
+         */
+        _prepareForDrawing: function (pointer) {
+            var p = new Point(pointer.x, pointer.y);
+            this._reset();
+            this._addPoint(p);
+        },
+        /**
+         * @private
+         * @param {Point} point Point to be added to points array
+         */
+        _addPoint: function (point) {
+            if (this._points.length > 1 && point.eq(this._points[this._points.length - 1])) {
+                return false;
+            }
+            this._points.push(point);
+            return true;
+        },
+        /**
+         * Clear points array and set contextTop canvas style.
+         * @private
+         */
+        _reset: function () {
+            this._points = [];
+            this.intersectObjects = [];
+        },
+        /**
+         * @private
+         * @param {Object} pointer Actual mouse position related to the canvas.
+         */
+        _captureDrawingPath: function (pointer) {
+            var pointerPoint = new Point(pointer.x, pointer.y);
+            return this._addPoint(pointerPoint);
+        },
+        /**
+         * Converts points to SVG path
+         * @param {Array} points Array of points
+         * @return {(string|number)[][]} SVG path commands
+         */
+        convertPointsToSVGPath: function (points, sync = true) {
+            var correction = this.width / 1000;
+            return fabric.util.getSmoothPathFromPoints(points, correction, sync);
+        },
+        /**
+         * Creates fabric.Path object to add on canvas
+         * @param {(string|number)[][]} pathData Path data
+         * @return {fabric.Path} Path to add on canvas
+         */
+        createPath: function (pathData) {
+            var path = new fabric.Path(pathData, {
+                fill: null,
+                stroke: this.color,
+                strokeWidth: this.width,
+                strokeLineCap: this.strokeLineCap,
+                strokeMiterLimit: this.strokeMiterLimit,
+                strokeLineJoin: this.strokeLineJoin,
+                strokeDashArray: this.strokeDashArray,
+            });
+            if (this.shadow) {
+                this.shadow.affectStroke = true;
+                path.shadow = new fabric.Shadow(this.shadow);
+            }
+            return path;
+        },
+        /**
+         * Decimate points array with the decimate value
+         */
+        decimatePoints: function (points, distance) {
+            if (points.length <= 2) {
+                return points;
+            }
+            var zoom = this.canvas.getZoom(), adjustedDistance = Math.pow(distance / zoom, 2), i, l = points.length - 1, lastPoint = points[0], newPoints = [lastPoint], cDistance;
+            for (i = 1; i < l - 1; i++) {
+                cDistance = Math.pow(lastPoint.x - points[i].x, 2) + Math.pow(lastPoint.y - points[i].y, 2);
+                if (cDistance >= adjustedDistance) {
+                    lastPoint = points[i];
+                    newPoints.push(lastPoint);
+                }
+            }
+            /**
+             * Add the last point from the original line to the end of the array.
+             * This ensures decimate doesn't delete the last point on the line, and ensures the line is > 1 point.
+             */
+            newPoints.push(points[l]);
+            return newPoints;
+        },
+        /**
+         * On mouseup after drawing the path on contextTop canvas
+         * we use the points captured to create an new fabric path object
+         * and add it to the fabric canvas.
+         */
+        _finalizeAndCheckIntersect: function () {
+            // [bugfix] 在clear命令后删除橡皮擦选中的元素，导致被清屏又重新删除
+            const currentObjectIds = this.canvas.getObjects().map(i => i.qn.oid);
+            const existObjs = this.intersectObjects.filter(i => currentObjectIds.includes(i.qn.oid));
+            if (!currentObjectIds.length || !existObjs.length) {
+                this._reset();
+                return;
+            }
+            existObjs.forEach(obj => {
+                obj.qn.sync = false;
+                obj.qn.noHistoryStack = true;
+            });
+            existObjs.length && this.canvas.remove(...existObjs);
+            existObjs.length && window.fabric.util.socket &&
+                window.fabric.util.socket.sendCmd({
+                    cmd: "br",
+                    oids: existObjs.map((i) => i.qn.oid),
+                });
+            existObjs.length && fabric.util.history && fabric.util.history.push({
+                type: "delete",
+                objects: existObjs,
+            });
+            this.canvas.clearContext(this.canvas.contextTop);
+            this.canvas.requestRenderAll();
+            console.log('eraser points', this._points);
+            this._reset();
+        }
+    });
+})(typeof exports !== 'undefined' ? exports : window);
+
+/* eslint-disable no-var */
 (function (global) {
     var fabric = global.fabric, getPointer = fabric.util.getPointer, degreesToRadians = fabric.util.degreesToRadians, isTouchEvent = fabric.util.isTouchEvent;
     /**
@@ -10474,7 +11752,7 @@ Object.assign(fabric, {
             this._createUpperCanvas();
             this._initEventListeners();
             this._initRetinaScaling();
-            this.freeDrawingBrush = fabric.PencilBrush && new fabric.PencilBrush(this);
+            this.freeDrawingBrush = fabric.FreeDrawBrush && new fabric.FreeDrawBrush(this);
             this.calcOffset();
         },
         /**
@@ -10569,8 +11847,14 @@ Object.assign(fabric, {
             }
             // we render the top context - last object
             if (this.selection && this._groupSelector) {
-                this._drawSelection(ctx);
-                this.contextTopDirty = true;
+                if (this.isTrackLineSelection) {
+                    this.contextTopDirty = true;
+                    this._drawTrackLineSelection(ctx);
+                }
+                else {
+                    this._drawSelection(ctx);
+                    this.contextTopDirty = true;
+                }
             }
             ctx.restore();
         },
@@ -10582,7 +11866,9 @@ Object.assign(fabric, {
          */
         renderTop: function () {
             var ctx = this.contextTop;
-            this.clearContext(ctx);
+            if (!this.isTrackLineSelection || !this._trackLineOldEnd.length) {
+                this.clearContext(ctx);
+            }
             this.renderTopLayer(ctx);
             this.fire('after:render');
             return this;
@@ -10778,12 +12064,20 @@ Object.assign(fabric, {
         setCursor: function (value) {
             this.upperCanvasEl.style.cursor = value;
         },
+        setImgCursor: function (value) {
+            this.upperCanvasEl.style.cursor = `url('${value}'), pointer`;
+        },
         /**
          * @private
          * @param {CanvasRenderingContext2D} ctx to draw the selection on
          */
         _drawSelection: function (ctx) {
             var selector = this._groupSelector, viewportStart = new Point(selector.ex, selector.ey), start = fabric.util.transformPoint(viewportStart, this.viewportTransform), viewportExtent = new Point(selector.ex + selector.left, selector.ey + selector.top), extent = fabric.util.transformPoint(viewportExtent, this.viewportTransform), minX = Math.min(start.x, extent.x), minY = Math.min(start.y, extent.y), maxX = Math.max(start.x, extent.x), maxY = Math.max(start.y, extent.y), strokeOffset = this.selectionLineWidth / 2;
+            // render selection
+            // qn modified
+            // [bug] dont draw selection dot
+            if (maxX - minX < 5 || maxY - minY < 5)
+                return;
             if (this.selectionColor) {
                 ctx.fillStyle = this.selectionColor;
                 ctx.fillRect(minX, minY, maxX - minX, maxY - minY);
@@ -10800,6 +12094,67 @@ Object.assign(fabric, {
             // selection border
             fabric.Object.prototype._setLineDash.call(this, ctx, this.selectionDashArray);
             ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
+        },
+        /**
+         * 轨迹选择
+         */
+        _trackSelectionPoints: [],
+        _trackLineOldEnd: [],
+        _trackLineColor: '#ff0000',
+        _trackLineWidth: 2,
+        _trackedObjects: [],
+        _drawTrackLineSelection: function (ctx) {
+            const selector = this._groupSelector;
+            const { type, currentPoint } = selector;
+            const point = new window.fabric.Point(currentPoint.x, currentPoint.y);
+            if (type === 'isActiveTarget') {
+                ctx.moveTo(point.x, point.y);
+                ctx.beginPath();
+                return;
+            }
+            if (type === 'mousedown') {
+                ctx.moveTo(point.x, point.y);
+                ctx.beginPath();
+                this._trackSelectionPoints.push(point);
+                return;
+            }
+            if (type === 'mousemove') {
+                this._trackSelectionPoints.push(point);
+                const length = this._trackSelectionPoints.length;
+                if (this._trackSelectionPoints.length > 2) {
+                    if (this._trackLineOldEnd.length) {
+                        ctx.beginPath();
+                        ctx.moveTo(this._trackLineOldEnd.x, this._trackLineOldEnd.y);
+                    }
+                    else {
+                        this._trackLineOldEnd = this._drawTrackLineSegment(ctx, this._trackSelectionPoints[length - 2], this._trackSelectionPoints[length - 1], true);
+                        ctx.stroke();
+                        ctx.restore();
+                        ctx.strokeStyle = this._trackLineColor;
+                        ctx.lineWidth = this._trackLineWidth;
+                    }
+                }
+                // 判断线段是否与目标对象相交
+                const curLine = [[this._trackLineOldEnd.x, this._trackLineOldEnd.y], [point.x, point.y]];
+                this.getObjects().forEach(obj => {
+                    const isTracked = this._trackedObjects.find(i => i.qn.oid === obj.qn.oid);
+                    if (isTracked)
+                        return;
+                    const otherCoords = obj.lineCoords;
+                    const lines = obj._getImageLines(otherCoords);
+                    if (obj.containsPoint(point, lines)) {
+                        console.log('obj.containsPoint', obj);
+                        if (obj.qn.t !== 'path' || (obj.qn.t === 'path' && (obj.checkPointHitPath3(curLine) || obj.checkPointHitPath2(point)))) {
+                            this._trackedObjects.push(obj);
+                        }
+                    }
+                });
+            }
+        },
+        _drawTrackLineSegment: function (ctx, p1, p2) {
+            const midPoint = p1.midPointFrom(p2);
+            ctx.quadraticCurveTo(p1.x, p1.y, midPoint.x, midPoint.y);
+            return midPoint;
         },
         /**
          * Method that determines what object we are clicking on
@@ -11263,10 +12618,36 @@ Object.assign(fabric, {
          * @return {fabric.Canvas} thisArg
          * @chainable
          */
-        clear: function () {
+        clear: function (sync = false) {
             // this.discardActiveGroup();
             this.discardActiveObject();
             this.clearContext(this.contextTop);
+            // qn modified
+            // 清除画布
+            const objects = this.getObjects();
+            if (sync && objects.length) {
+                const clearId = window.fabric.util.genUuid();
+                const oids = objects.map(i => i.qn.oid);
+                const eraserOids = [];
+                objects.forEach(i => {
+                    if (i.eraser && i.eraser._objects.length) {
+                        i.eraser._objects.forEach(j => {
+                            if (!eraserOids.includes(j.qn.oid)) {
+                                eraserOids.push(j.qn.oid);
+                            }
+                        });
+                    }
+                });
+                console.log('eraserOids', eraserOids);
+                fabric.util.socket && fabric.util.socket.sendCmd({ cmd: "clear", oids, eids: eraserOids, cid: clearId });
+                // 添加历史栈
+                fabric.util.history && fabric.util.history.push({
+                    type: 'clear',
+                    objects: JSON.parse(JSON.stringify(this.toJSON().objects)),
+                    clearId
+                });
+            }
+            fabric._tempIsCleared = true;
             return this.callSuper('clear');
         },
         /**
@@ -11339,6 +12720,7 @@ Object.assign(fabric, {
     }
 })(typeof exports !== 'undefined' ? exports : window);
 
+/* eslint-disable no-var */
 //@ts-nocheck
 (function (global) {
     var fabric = global.fabric, addListener = fabric.util.addListener, removeListener = fabric.util.removeListener, RIGHT_CLICK = 3, MIDDLE_CLICK = 2, LEFT_CLICK = 1, addEventOptions = { passive: false };
@@ -11761,6 +13143,7 @@ Object.assign(fabric, {
          * @param {Event} e Event object fired on mousedown
          */
         _onTouchStart: function (e) {
+            console.log('=======_onTouchStart=======', e);
             e.preventDefault();
             if (this.mainTouchId === null) {
                 this.mainTouchId = this.getPointerId(e);
@@ -11889,6 +13272,11 @@ Object.assign(fabric, {
                 this._resetTransformEventData();
                 return;
             }
+            if (this.isTrackLineSelection) {
+                this.needClearTopContext = true;
+                this.clearContext(this.contextTop);
+                this.needClearTopContext = false;
+            }
             if (this.isDrawingMode && this._isCurrentlyDrawing) {
                 this._onMouseUpInDrawingMode(e);
                 return;
@@ -11943,6 +13331,12 @@ Object.assign(fabric, {
             else if (!isClick) {
                 this.renderTop();
             }
+            if (this.isTrackLineSelection) {
+                this.needClearTopContext = true;
+                this.clearContext(this.contextTop);
+                this._trackSelectionPoints = [];
+                this.needClearTopContext = false;
+            }
         },
         /**
          * @private
@@ -11992,6 +13386,39 @@ Object.assign(fabric, {
             if (eventType === 'up') {
                 options.currentTarget = this.findTarget(e);
                 options.currentSubTargets = this.targets;
+                // qn modified
+                // shape 协同
+                console.log('mouseup shape', fabric._shapeOption, options, target);
+                const fabricItemParams = fabric._shapeOption;
+                if (fabricItemParams && ['rect', 'circle', 'triangle', 'line'].includes(fabricItemParams.qn.t)) {
+                    console.log('shape options', fabricItemParams);
+                    fabricItemParams.qn.sync = true;
+                    fabric.util.socket && fabric.util.socket.draw(fabricItemParams);
+                    // qn modified
+                    // shape 添加历史栈
+                    console.log('===mouseup call===', 'history push', fabric._tmpDrawingObj);
+                    if (fabric.util.history && fabricItemParams.qn.t !== 'path') {
+                        const shapeMap = { circle: 'Circle', rect: 'Rect', triangle: 'Triangle', line: 'Line' };
+                        const type = shapeMap[fabricItemParams.qn.t];
+                        // line 需要两个参数
+                        let shape;
+                        if (type === 'Line') {
+                            const points = [fabricItemParams.x1, fabricItemParams.y1, fabricItemParams.x2, fabricItemParams.y2];
+                            shape = new window.fabric[type](points, fabricItemParams);
+                        }
+                        else {
+                            shape = new window.fabric[type](fabricItemParams);
+                        }
+                        fabric.util.history.push({
+                            type: 'add',
+                            objects: [shape]
+                        });
+                    }
+                    fabric._shapeOption = null; // 重置shape option
+                }
+            }
+            if (eventType === 'down') {
+                console.log('fabric._shapeOption:', fabric._shapeOption);
             }
             this.fire('mouse:' + eventType, options);
             target && target.fire('mouse' + eventType, options);
@@ -12030,6 +13457,98 @@ Object.assign(fabric, {
             }
             target.setCoords();
             if (transform.actionPerformed || (this.stateful && target.hasStateChanged())) {
+                // qn modified
+                // 同步object modified的结果
+                // 同步group的修改
+                const { target = {}, action, transform } = options;
+                const actionMapProps = {
+                    drag: ['left', 'top'],
+                    scale: ['scaleX', 'scaleY', 'top', 'left'],
+                    scaleX: ['scaleX'],
+                    scaleY: ['scaleY'],
+                    rotate: ['angle']
+                };
+                // const syncActions = ['drag', 'scale', 'scaleX', 'scaleY']
+                // target.qn.isReceived = false
+                const modifiedProps = actionMapProps[action];
+                const _options = {};
+                const historyCurrent = {};
+                const historyOriginal = {};
+                modifiedProps.forEach(key => {
+                    if (target.hasOwnProperty(key)) {
+                        historyCurrent[key] = Number(target[key].toFixed(2));
+                        historyOriginal[key] = Number(transform.original[key].toFixed(2));
+                        _options[key] = Number(target[key].toFixed(2));
+                    }
+                });
+                _options.qn = target.qn;
+                _options.at = action;
+                // 添加group标识
+                if (target._objects) {
+                    _options.qn.t = 'group';
+                }
+                // 单个对象 添加历史栈
+                if (!target._objects) {
+                    // 对象修改加入历史栈
+                    fabric.util.history && fabric.util.history.push({
+                        type: 'modified',
+                        action: action,
+                        objects: [
+                            {
+                                qn: target.qn,
+                                current: historyCurrent,
+                                original: historyOriginal
+                            }
+                        ]
+                    });
+                    fabric.util.socket && fabric.util.socket.sendCmd({ cmd: 'bm', mos: { [_options.qn.oid]: _options }, at: action });
+                }
+                // 广播交互后的状态
+                // fabric.util.socket && fabric.util.socket.draw(_options)
+                // group modified
+                // 用于server同步
+                if (target._objects) {
+                    const _oids = target._objects.map(i => i.qn.oid);
+                    const mos = {};
+                    const historyObjs = [];
+                    target.canvas.toJSON().objects.forEach(o => {
+                        if (_oids.includes(o.qn.oid)) {
+                            const _options = {};
+                            const current = {};
+                            const original = {};
+                            // history & server need left/right prop
+                            //new Set([...modifiedProps, 'left', 'top'])
+                            const object = target._objects.find(_obj => _obj.qn.oid === o.qn.oid);
+                            modifiedProps.forEach(key => {
+                                if (o.hasOwnProperty(key)) {
+                                    const originalValue = object.originalProps[key] || 1;
+                                    current[key] = Number(o[key].toFixed(2));
+                                    original[key] = Number(originalValue.toFixed(2));
+                                    _options[key] = Number(o[key].toFixed(2));
+                                }
+                            });
+                            // update originalProps
+                            object.originalProps = JSON.parse(JSON.stringify(o));
+                            _options.qn = {
+                                w: this.getWidth()
+                            };
+                            mos[o.qn.oid] = _options;
+                            historyObjs.push({ qn: o.qn, current, original });
+                        }
+                    });
+                    console.log('group modified data to store:', { at: action, mos });
+                    // group对象修改加入历史栈
+                    fabric.util.history && fabric.util.history.push({
+                        type: 'modified',
+                        action: action,
+                        objects: historyObjs,
+                    });
+                    // 用于server同步
+                    console.log('draw options batch', { at: action, mos });
+                    // 广播交互后的状态
+                    fabric.util.socket && fabric.util.socket.sendCmd({ cmd: 'bm', mos, at: action });
+                    // fabric.util.socket && fabric.util.socket.modifyObjects({at: action, mos})
+                }
                 this._fire('modified', options);
             }
         },
@@ -12055,7 +13574,7 @@ Object.assign(fabric, {
                 var pointer = this.getPointer(e);
                 this.freeDrawingBrush.onMouseMove(pointer, { e: e, pointer: pointer });
             }
-            this.setCursor(this.freeDrawingCursor);
+            // this.setCursor(this.freeDrawingCursor);
             this._handleEvent(e, 'move');
         },
         /**
@@ -12076,6 +13595,9 @@ Object.assign(fabric, {
          * @param {Event} e Event object fired on mousedown
          */
         __onMouseDown: function (e) {
+            if (fabric.lastPath) {
+                fabric.lastPath.set('opacity', 1);
+            }
             this._cacheTransformEventData(e);
             this._handleEvent(e, 'down:before');
             var target = this._target;
@@ -12114,19 +13636,44 @@ Object.assign(fabric, {
                 this._handleGrouping(e, target);
                 target = this._activeObject;
             }
-            if (this.selection && (!target ||
+            console.log('isTrackLineSelection mousedown', target == this._activeObject);
+            if (this.selection && this.isTrackLineSelection) {
+                this._trackLineOldEnd = [];
+                this._trackedObjects = [];
+                const type = target == this._activeObject ? 'isActiveTarget' : 'mousedown';
+                if (target == null || target !== this._activeObject) {
+                    this._groupSelector = {
+                        ex: this._absolutePointer.x,
+                        ey: this._absolutePointer.y,
+                        top: 0,
+                        left: 0,
+                        currentPoint: { x: this._absolutePointer.x, y: this._absolutePointer.y },
+                        type: type
+                    };
+                }
+                this.renderTop();
+            }
+            else if (this.selection && (!target ||
                 (!target.selectable && !target.isEditing && target !== this._activeObject))) {
                 this._groupSelector = {
                     ex: this._absolutePointer.x,
                     ey: this._absolutePointer.y,
                     top: 0,
-                    left: 0
+                    left: 0,
+                    currentPoint: { x: this._absolutePointer.x, y: this._absolutePointer.y },
+                    type: 'mousedown'
                 };
+                // if (this.isTrackLineSelection) {
+                //   this.renderTop();
+                // }
             }
             if (target) {
                 var alreadySelected = target === this._activeObject;
-                if (target.selectable && target.activeOn === 'down') {
+                if (target.selectable && target.activeOn === 'down' && !this.isTrackLineSelection) {
                     this.setActiveObject(target, e);
+                    // 框选点击选中元素
+                    console.log('active object');
+                    fabric.util.socket && fabric.util.socket.sendCmd({ cmd: 'as', oids: [target.qn.oid] });
                 }
                 var corner = target._findTargetCorner(this.getPointer(e, true), fabric.util.isTouchEvent(e));
                 target.__corner = corner;
@@ -12144,6 +13691,8 @@ Object.assign(fabric, {
             invalidate && (this._objectsToRender = undefined);
             this._handleEvent(e, 'down');
             // we must renderAll so that we update the visuals
+            // shape 的中间状态， 初始是重置
+            fabric._shapeOption = null;
             invalidate && this.requestRenderAll();
         },
         /**
@@ -12200,10 +13749,20 @@ Object.assign(fabric, {
             }
             var groupSelector = this._groupSelector;
             // We initially clicked in an empty area, so we draw a box for multiple selection
-            if (groupSelector) {
+            if (this.selection && this.isTrackLineSelection && groupSelector) {
                 pointer = this._absolutePointer;
                 groupSelector.left = pointer.x - groupSelector.ex;
                 groupSelector.top = pointer.y - groupSelector.ey;
+                groupSelector.currentPoint = { x: pointer.x, y: pointer.y };
+                groupSelector.type = 'mousemove';
+                this.renderTop();
+            }
+            else if (groupSelector) { //groupSelector && this._activeObject !== this.findTarget(e)
+                pointer = this._absolutePointer;
+                groupSelector.left = pointer.x - groupSelector.ex;
+                groupSelector.top = pointer.y - groupSelector.ey;
+                groupSelector.currentPoint = { x: pointer.x, y: pointer.y };
+                groupSelector.type = 'mousemove';
                 this.renderTop();
             }
             else if (!this._currentTransform) {
@@ -12383,7 +13942,7 @@ Object.assign(fabric, {
     });
 })(typeof exports !== 'undefined' ? exports : window);
 
-//@ts-nocheck
+/* eslint-disable no-var */
 (function (global) {
     var fabric = global.fabric, min = Math.min, max = Math.max;
     fabric.util.object.extend(fabric.Canvas.prototype, /** @lends fabric.Canvas.prototype */ {
@@ -12489,7 +14048,30 @@ Object.assign(fabric, {
          * @param {Event} e mouse event
          */
         _groupSelectedObjects: function (e) {
-            var group = this._collectObjects(e), aGroup;
+            console.time('====相交选中时间====');
+            var group = [], aGroup;
+            if (this.isTrackLineSelection) {
+                // var correction = this.width / 1000;
+                // const pathData = fabric.util.getSmoothPathFromPoints(this._trackSelectionPoints, correction, false);
+                // const  path = this._createPath(pathData);
+                // //  needed for `intersectsWithObject`
+                // path.setCoords();
+                // path.calcTransformMatrix()
+                // const selectObjects = this._objects.filter((obj) => {
+                //   if (obj.qn.t === 'path' && ((!obj.scaleX || obj.scaleX === 1) && (!obj.scaleY || obj.scaleY === 1))) {
+                //     if (!obj.intersectsWithObject(path, true, true)) return false
+                //     return obj.checkPathIntersect3(path)
+                //   } else {
+                //     return obj.intersectsWithObject(path, true, true)
+                //   }
+                //   // return obj.intersectsWithObject(path, false, true)
+                // })
+                // console.log('check 相交', selectObjects)
+                group = this._trackedObjects;
+            }
+            else {
+                group = this._collectObjects(e);
+            }
             // do not create group for 1 element only
             if (group.length === 1) {
                 this.setActiveObject(group[0], e);
@@ -12500,6 +14082,13 @@ Object.assign(fabric, {
                 });
                 this.setActiveObject(aGroup, e);
             }
+            // this.needClearTopContext = true
+            // this.clearContext(this.contextTop);
+            // this._trackSelectionPoints = []
+            // this.needClearTopContext = false
+            this.contextTop.closePath();
+            console.timeEnd('====相交选中时间====');
+            fabric.util.socket && fabric.util.socket.sendCmd({ cmd: 'as', oids: group.map(i => i.qn.oid) });
         },
         /**
          * @private
@@ -12531,10 +14120,30 @@ Object.assign(fabric, {
             return group;
         },
         /**
+         * 根据pathData 创建fabric.Path
+         * @returns
+         */
+        _createPath: function (pathData) {
+            var path = new fabric.Path(pathData, {
+                fill: null,
+                stroke: this._trackLineColor,
+                strokeWidth: this._trackLineWidth,
+                strokeLineCap: this.strokeLineCap,
+                strokeMiterLimit: this.strokeMiterLimit,
+                strokeLineJoin: this.strokeLineJoin,
+                strokeDashArray: this.strokeDashArray,
+            });
+            if (this.shadow) {
+                this.shadow.affectStroke = true;
+                path.shadow = new fabric.Shadow(this.shadow);
+            }
+            return path;
+        },
+        /**
          * @private
          */
         _maybeGroupObjects: function (e) {
-            if (this.selection && this._groupSelector) {
+            if ((this.selection && this._groupSelector)) {
                 this._groupSelectedObjects(e);
             }
             this.setCursor(this.defaultCursor);
@@ -12683,6 +14292,7 @@ Object.assign(fabric, {
                 .then(function (res) {
                 var enlived = res[0], enlivedMap = res[1];
                 _this.clear();
+                fabric._tempIsCleared = false;
                 _this.__setupCanvas(serialized, enlived);
                 _this.renderOnAddRemove = renderOnAddRemove;
                 _this.set(enlivedMap);
@@ -12875,9 +14485,9 @@ Object.assign(fabric, {
     });
 })(typeof exports !== 'undefined' ? exports : window);
 
-//@ts-nocheck
+/* eslint-disable no-var */
 (function (global) {
-    var fabric = global.fabric || (global.fabric = {}), extend = fabric.util.object.extend, clone = fabric.util.object.clone, toFixed = fabric.util.toFixed, capitalize = fabric.util.string.capitalize, degreesToRadians = fabric.util.degreesToRadians, objectCaching = !fabric.isLikelyNode, ALIASING_LIMIT = 2;
+    var fabric = global.fabric || (global.fabric = {}), extend = fabric.util.object.extend, clone = fabric.util.object.clone, toFixed = fabric.util.toFixed, capitalize = fabric.util.string.capitalize, degreesToRadians = fabric.util.degreesToRadians; !fabric.isLikelyNode; var ALIASING_LIMIT = 2;
     /**
      * Root object class from which all 2d shape classes inherit from
      * @class fabric.Object
@@ -13293,7 +14903,7 @@ Object.assign(fabric, {
          * @type Boolean
          * @default
          */
-        lockScalingFlip: false,
+        lockScalingFlip: true,
         /**
          * When `true`, object is not exported in OBJECT/JSON
          * @since 1.6.3
@@ -13309,7 +14919,8 @@ Object.assign(fabric, {
          * @type Boolean
          * @default true
          */
-        objectCaching: objectCaching,
+        // objectCaching:            objectCaching,
+        objectCaching: false,
         /**
          * When `true`, object properties are checked for cache invalidation. In some particular
          * situation you may want this to be disabled ( spray brush, very big, groups)
@@ -13384,7 +14995,7 @@ Object.assign(fabric, {
         stateProperties: ('top left width height scaleX scaleY flipX flipY originX originY transformMatrix ' +
             'stroke strokeWidth strokeDashArray strokeLineCap strokeDashOffset strokeLineJoin strokeMiterLimit ' +
             'angle opacity fill globalCompositeOperation shadow visible backgroundColor ' +
-            'skewX skewY fillRule paintFirst clipPath strokeUniform').split(' '),
+            'skewX skewY fillRule paintFirst clipPath strokeUniform qn').split(' '),
         /**
          * List of properties to consider when checking if cache needs refresh
          * Those properties are checked by statefullCache ON ( or lazy mode if we want ) or from single
@@ -13432,6 +15043,14 @@ Object.assign(fabric, {
          */
         initialize: function (options) {
             if (options) {
+                // qn modified
+                // 为每一个object 添加qn 标识
+                if (!options.qn) {
+                    options.qn = fabric.util.genQn();
+                }
+                else {
+                    options.qn = Object.assign({}, fabric.util.genQn(), options.qn);
+                }
                 this.setOptions(options);
             }
         },
@@ -13621,6 +15240,7 @@ Object.assign(fabric, {
                 globalCompositeOperation: this.globalCompositeOperation,
                 skewX: toFixed(this.skewX, NUM_FRACTION_DIGITS),
                 skewY: toFixed(this.skewY, NUM_FRACTION_DIGITS),
+                qn: this.qn
             };
             if (this.clipPath && !this.clipPath.excludeFromExport) {
                 object.clipPath = this.clipPath.toObject(propertiesToInclude);
@@ -13804,7 +15424,36 @@ Object.assign(fabric, {
             }
             else {
                 this._removeCacheCanvas();
-                this.dirty = false;
+                // this.dirty = false;
+                this.dirty = true;
+                this.drawObject(ctx);
+                if (this.objectCaching && this.statefullCache) {
+                    this.saveState({ propertySet: 'cacheProperties' });
+                }
+            }
+            ctx.restore();
+        },
+        renderByOne: function (ctx) {
+            if (this.isNotVisible()) {
+                return;
+            }
+            if (this.canvas && this.canvas.skipOffscreen && !this.group && !this.isOnScreen()) {
+                return;
+            }
+            ctx.save();
+            this._setupCompositeOperation(ctx);
+            this.drawSelectionBackground(ctx);
+            this.transform(ctx);
+            // this._setOpacity(ctx);
+            // this._setShadow(ctx, this);
+            if (this.shouldCache()) {
+                this.renderCache();
+                this.drawCacheOnCanvas(ctx);
+            }
+            else {
+                this._removeCacheCanvas();
+                // this.dirty = false;
+                this.dirty = true;
                 this.drawObject(ctx);
                 if (this.objectCaching && this.statefullCache) {
                     this.saveState({ propertySet: 'cacheProperties' });
@@ -13820,7 +15469,13 @@ Object.assign(fabric, {
             if (this.isCacheDirty()) {
                 this.statefullCache && this.saveState({ propertySet: 'cacheProperties' });
                 this.drawObject(this._cacheContext, options.forClipping);
-                this.dirty = false;
+                if (this.qn && this.qn.t === 'eraser') {
+                    // eraser 的 undo redo 需要及时更新
+                    this.dirty = true;
+                }
+                else {
+                    this.dirty = false;
+                }
             }
         },
         /**
@@ -14845,7 +16500,7 @@ Object.assign(fabric, {
     });
 })(typeof exports !== 'undefined' ? exports : window);
 
-//@ts-nocheck
+/* eslint-disable no-var */
 (function (global) {
     function arrayFromCoords(coords) {
         return [
@@ -15045,9 +16700,295 @@ Object.assign(fabric, {
          */
         intersectsWithObject: function (other, absolute, calculate) {
             var intersection = fabric.Intersection.intersectPolygonPolygon(this.getCoords(absolute, calculate), other.getCoords(absolute, calculate));
+            console.log('====intersectsWithObject====', intersection);
             return intersection.status === 'Intersection'
                 || other.isContainedWithinObject(this, absolute, calculate)
                 || this.isContainedWithinObject(other, absolute, calculate);
+        },
+        /**
+           * 检查两个path相交
+           * @param path1
+           *
+           */
+        checkPathIntersect(path1) {
+            let isIntersect = false;
+            const path2Offset = [this.ownMatrixCache.value[4] - this.pathOffset.x, this.ownMatrixCache.value[5] - this.pathOffset.y];
+            console.log('path2Offset', path2Offset);
+            checkPath: for (let i = 0; i < path1.path.length; i++) {
+                const item1 = JSON.parse(JSON.stringify(path1.path[i]));
+                const point1 = item1.splice(1, 3);
+                const isHit = this.checkPointHitPath2({ x: point1[0], y: point1[1] });
+                if (isHit) {
+                    isIntersect = true;
+                    break checkPath;
+                }
+                console.log('============================== break ========================');
+                // for (let j = 0; j < this.path.length; j++) {
+                //     const item2 = JSON.parse(JSON.stringify(this.path[j]))
+                //     const point2 = item2.splice(1,3).map((item, index) => item + path2Offset[index])
+                //     const xd = point1[0] - point2[0];
+                //     const yd = point1[1] - point2[1];
+                //     const isHit = this.checkPointHitPath2({x: point1[0], y: point1[1]})
+                //     // const distance = Math.hypot(xd, yd);
+                //     // console.log('相交选中，distance', distance)
+                //     if (isHit) {
+                //       isIntersect = true
+                //       break checkPath
+                //     }
+                // }
+                // const point = path1.path[i]
+                // const pointer = {
+                //   x: point[1],
+                //   y: point[2]
+                // }
+                // if (this.checkPointHitPath(pointer)) {
+                //   isIntersect = true
+                //   break checkPath
+                // }
+            }
+            return isIntersect;
+        },
+        /**
+         * 两点之间的距离判断
+         * @param path1
+         * @returns
+         */
+        checkPathIntersect2(path1) {
+            let isIntersect = false;
+            const path2Offset = [this.ownMatrixCache.value[4] - this.pathOffset.x, this.ownMatrixCache.value[5] - this.pathOffset.y];
+            console.log('path2Offset', path2Offset);
+            checkPath: for (let i = 0; i < path1.path.length; i++) {
+                const item1 = JSON.parse(JSON.stringify(path1.path[i]));
+                const point1 = item1.splice(1, 3);
+                for (let j = 0; j < this.path.length; j++) {
+                    const item2 = JSON.parse(JSON.stringify(this.path[j]));
+                    const point2 = item2.splice(1, 3).map((item, index) => item + path2Offset[index]);
+                    if (Math.sqrt(Math.pow(Math.abs(point1[0] - point2[0]), 2) + Math.pow(Math.abs(point1[1] - point2[1]), 2)) < 15) {
+                        isIntersect = true;
+                        break checkPath;
+                    }
+                    // if (Math.abs(point1[0] - point2[0]) < 10 && Math.abs(point1[1] - point2[1]) < 10) {
+                    //     isIntersect = true
+                    //     break
+                    // }
+                }
+            }
+            return isIntersect;
+        },
+        /**
+         * 两个点组成的线段是否交叉
+         * @param path1
+         * @returns
+         */
+        checkPathIntersect3(path1) {
+            let isIntersect = false;
+            [this.ownMatrixCache.value[4] - this.pathOffset.x, this.ownMatrixCache.value[5] - this.pathOffset.y];
+            // const purePath = this.path.map(i => [i[1], i[2]])
+            // const purePath1 = path1.path.map(i => [i[1], i[2]])
+            // var line1 = window.turf.lineString(purePath);
+            // var line2 = window.turf.lineString(purePath1);
+            // var intersects = window.geometric.lineIntersectsLine(purePath, purePath1)
+            // console.log('checkPathIntersect3 intersects', intersects, purePath, purePath1)
+            for (let i = 0; i < path1.path.length - 1; i++) {
+                // const point1 = [path1.path[i][1], path1.path[i][2]]
+                // const point1next = [path1.path[i+1][1], path1.path[i+1][2]]
+                const point1 = { x: path1.path[i][1], y: path1.path[i][2] };
+                const hit = this.checkPointHitPath(point1, 20);
+                return hit;
+                // for (let j = 0; j < this.path.length - 1; j++) {
+                //   const point2 = [this.path[j][1]  + offset[0], this.path[j][2] + offset[1]]
+                //   const point2next = [this.path[j+1][1] + offset[0], this.path[j+1][2] + offset[1]]
+                //   var line1 = [point1, point1next];
+                //   var line2 = [point2, point2next];
+                //   var intersect = window.geometric.lineIntersectsLine(line1, line2);
+                //   console.log('checkPathIntersect3 intersect', intersect, [point1, point1next], [point2, point2next])
+                //   if (intersect) {
+                //     isIntersect = true
+                //     break checkPath
+                //   }
+                // }
+            }
+            // const res = isPointInPolygon(purePath, point1.x, point1.y)
+            // console.log('checkPathIntersect3 res', res)
+            //     if (res) {
+            //     isIntersect = true
+            //     break checkPath
+            //   }
+            // }
+            return isIntersect;
+        },
+        checkPointHitPath3(line1) {
+            const offset = [this.ownMatrixCache.value[4] - this.pathOffset.x, this.ownMatrixCache.value[5] - this.pathOffset.y];
+            // const line2 = this.path.map(i => {
+            //   return [i[1] + offset[0], i[2] + offset[1]]
+            // })
+            // const intersect1 = window.geometric.lineIntersectsPolygon(line1, line2)
+            // if (intersect1) {
+            //   console.log('distance intersect1', intersect1)
+            // }
+            // return intersect1
+            // 【bugfix】 【临时修改】在会控平板端只画一个点，橡皮擦无法判断相交，导致这个点无法擦除
+            console.log('[==== isPoint ====]', this.isPoint());
+            if (this.path.length <= 5 || this.isPoint()) {
+                const point = {
+                    x: line1[1][0],
+                    y: line1[1][1]
+                };
+                const intersect = this.checkPointHitPath(point, 30);
+                console.log('只有一个点时 当前轨迹 point', point, intersect, line1);
+                return intersect;
+                // intersect = window.geometric.pointOnPolygon([this.path[i][1] + offset[0], this.path[i][2] + offset[1]], line1, 40)
+            }
+            for (let i = 0; i < this.path.length - 1; i++) {
+                // let intersect = false
+                // // 【bugfix】 【临时修改】在会控平板端只画一个点，橡皮擦无法判断相交，导致这个点无法擦除
+                // if (this.path.length <= 3) {
+                //   intersect = window.geometric.pointOnPolygon([this.path[i][1] + offset[0], this.path[i][2] + offset[1]], line1, 40)
+                // } else {
+                //   const line2 = [[this.path[i][1] + offset[0], this.path[i][2] + offset[1]], [this.path[i+1][1] + offset[0], this.path[i+1][2] + offset[1]]]
+                //   intersect = window.geometric.lineIntersectsLine(line1, line2);
+                // }
+                const line2 = [[this.path[i][1] + offset[0], this.path[i][2] + offset[1]], [this.path[i + 1][1] + offset[0], this.path[i + 1][2] + offset[1]]];
+                const intersect = window.geometric.lineIntersectsLine(line1, line2);
+                console.log('lineIntersectsLine 橡皮擦是否相交', intersect, this.path);
+                // const pointerOnLine = window.geometric.pointOnLine([pointer.x, pointer.y], line, 0)
+                if (intersect) {
+                    console.log('lineIntersectsLine', intersect);
+                    return true;
+                }
+            }
+        },
+        /**
+         * 面积法(准，但是计算量大时间长)
+         *  1. 当前点P与已知轨迹点A,B 组成一个三角形
+         *  2. 先判断是不是锐角三角形， 钝角直接返回
+         *  3. 已知三边长，根据海伦公式求三角形面积
+         *  4. 根据面积得到P到A,B的距离
+         *
+         * @param pointer
+         */
+        checkPointHitPath2(pointer) {
+            function distance2d(x1, y1, x2, y2) {
+                const xd = x2 - x1;
+                const yd = y2 - y1;
+                return Math.hypot(xd, yd);
+            }
+            const x = pointer.x;
+            const y = pointer.y;
+            const threshold = 70;
+            const offset = [this.ownMatrixCache.value[4] - this.pathOffset.x, this.ownMatrixCache.value[5] - this.pathOffset.y];
+            const path = this.path;
+            let A = [path[0][1] + offset[0], path[0][2] + offset[1]];
+            let B = [path[1][1] + offset[0], path[1][2] + +offset[1]];
+            if (distance2d(A[0], A[1], x, y) < threshold ||
+                distance2d(B[0], B[1], x, y) < threshold) {
+                return true;
+            }
+            for (let i = 0; i < this.path.length; i++) {
+                const deltaAB = [B[0] - A[0], B[1] - A[1]];
+                const deltaPA = [x - A[0], y - A[1]];
+                const deltaPB = [x - B[0], y - B[1]];
+                const lengthAB = Math.hypot(deltaAB[1], deltaAB[0]);
+                const lengthPA = Math.hypot(deltaPA[1], deltaPA[0]);
+                const lengthPB = Math.hypot(deltaPB[1], deltaPB[0]);
+                const maxLength = Math.max(lengthAB, lengthPA, lengthPB);
+                if (maxLength == lengthAB) {
+                    // 海伦公式， 三角形面积
+                    const halfPerimeter = 0.5 * (lengthAB + lengthPA + lengthPB);
+                    const s = Math.sqrt(halfPerimeter * (halfPerimeter - lengthAB) * (halfPerimeter - lengthPA) * (halfPerimeter - lengthPB));
+                    const distance = s * 2 / lengthAB;
+                    if (distance < threshold) {
+                        console.log('distance checkPointHitPath2', distance);
+                        return true;
+                    }
+                }
+                if (i + 1 >= this.path.length) {
+                    return false;
+                }
+                A = B;
+                console.log('path', this.path.length, i, this.path[i + 1]);
+                B = [this.path[i + 1][1] + offset[0], this.path[i + 1][2] + offset[1]];
+            }
+        },
+        // 判断一个点是否与path相交
+        checkPointHitPath(pointer, customThreshold) {
+            console.log('checkPointHitPath');
+            const x = pointer.x;
+            const y = pointer.y;
+            const threshold = customThreshold || 80;
+            function distance2d(x1, y1, x2, y2) {
+                const xd = x2 - x1;
+                const yd = y2 - y1;
+                return Math.hypot(xd, yd);
+            }
+            // 角度计算
+            // if (this.angle === 0) {
+            //   x = point[0] - element.x;
+            //   y = point[1] - element.y;
+            // } else {
+            //   // Counter-rotate the point around center before testing
+            //   const [minX, minY, maxX, maxY] = getElementAbsoluteCoords(element);
+            //   const rotatedPoint = rotatePoint(
+            //     point,
+            //     [minX + (maxX - minX) / 2, minY + (maxY - minY) / 2],
+            //     -element.angle,
+            //   );
+            //   x = rotatedPoint[0] - element.x;
+            //   y = rotatedPoint[1] - element.y;
+            // }
+            const offset = [this.ownMatrixCache.value[4] - this.pathOffset.x, this.ownMatrixCache.value[5] - this.pathOffset.y];
+            const path = this.path;
+            let A = [path[0][1] + offset[0], path[0][2] + offset[1]];
+            let B = [path[1][1] + offset[0], path[1][2] + offset[1]];
+            let P;
+            console.log('A', A);
+            console.log('B', B);
+            // For freedraw dots
+            if (distance2d(A[0], A[1], x, y) < threshold ||
+                distance2d(B[0], B[1], x, y) < threshold) {
+                return true;
+            }
+            // For freedraw lines
+            for (let i = 1; i < this.path.length; i++) {
+                const delta = [B[0] - A[0], B[1] - A[1]];
+                const length = Math.hypot(delta[1], delta[0]);
+                const U = [delta[0] / length, delta[1] / length];
+                const C = [x - A[0], y - A[1]];
+                const d = (C[0] * U[0] + C[1] * U[1]) / Math.hypot(U[1], U[0]);
+                P = [A[0] + U[0] * d, A[1] + U[1] * d];
+                const da = distance2d(P[0], P[1], A[0], A[1]);
+                const db = distance2d(P[0], P[1], B[0], B[1]);
+                P = db < da && da > length ? B : da < db && db > length ? A : P;
+                if (Math.hypot(y - P[1], x - P[0]) < threshold) {
+                    console.log('distance', Math.hypot(y - P[1], x - P[0]));
+                    return true;
+                }
+                if (i + 1 >= this.path.length) {
+                    return false;
+                }
+                A = B;
+                console.log('path', this.path.length, i, this.path[i + 1]);
+                B = [this.path[i + 1][1] + offset[0], this.path[i + 1][2] + offset[1]];
+            }
+        },
+        /**
+         * 判断是不是一个点，
+         * 存在一种情况，虽然绘制的点很多， 但是一直在原地，这时轨迹相交判断失败，需要判断为点与线相交
+         */
+        isPoint() {
+            let max = 0;
+            for (let i = 1; i < this.path.length; i++) {
+                const startPointX = this.path[0][1];
+                const startPointY = this.path[0][2];
+                const currentPointX = this.path[i][1];
+                const currentPointY = this.path[i][2];
+                max = Math.max(Math.abs(currentPointX - startPointX), Math.abs(currentPointY - startPointY), max);
+                console.log('path max', max);
+                if (max > 10) {
+                    return false;
+                }
+            }
+            return true;
         },
         /**
          * Checks if object is fully contained within area of another object
@@ -16046,7 +17987,16 @@ Object.assign(fabric, {
          * @return {String|Boolean} corner code (tl, tr, bl, br, etc.), or false if nothing is found
          */
         _findTargetCorner: function (pointer, forTouch) {
-            if (!this.hasControls || (!this.canvas || this.canvas._activeObject !== this)) {
+            // qn modified
+            // [bug] 新建的对象无法通过选择框进行缩放
+            function isObjectEqula(obj1, obj2) {
+                const oid1 = obj1 && obj1.qn && obj1.qn.oid;
+                const oid2 = obj2 && obj2.qn && obj2.qn.oid;
+                if (oid1 === undefined)
+                    return false;
+                return oid1 === oid2;
+            }
+            if (!this.hasControls || (!isObjectEqula(this.canvas && this.canvas._activeObject, this))) {
                 return false;
             }
             var xPoints, lines, keys = Object.keys(this.oCoords), j = keys.length - 1, i;
@@ -17625,6 +19575,7 @@ fabric.Rect = Rect;
     };
 })(typeof exports !== 'undefined' ? exports : window);
 
+/* eslint-disable no-var */
 //@ts-nocheck
 (function (global) {
     var fabric = global.fabric || (global.fabric = {}), min = fabric.util.array.min, max = fabric.util.array.max, extend = fabric.util.object.extend, clone = fabric.util.object.clone, toFixed = fabric.util.toFixed;
@@ -17657,6 +19608,13 @@ fabric.Rect = Rect;
          * @return {fabric.Path} thisArg
          */
         initialize: function (path, options) {
+            // qn modified
+            // 获取fabric.freeDrawObject 作为qn
+            if (!options.qn) {
+                const qn = fabric.freeDrawObject;
+                options = Object.assign(options, { qn });
+                fabric.freeDrawObject = {};
+            }
             options = clone(options || {});
             delete options.path;
             this.callSuper('initialize', options);
@@ -17726,8 +19684,15 @@ fabric.Rect = Rect;
          * @param {CanvasRenderingContext2D} ctx context to render path on
          */
         _render: function (ctx) {
+            // fabric.util.postWorker({ctx})
             this._renderPathCommands(ctx);
             this._renderPaintInOrder(ctx);
+            if (fabric._freePathOnTopCanvas && this.canvas.contextTop) {
+                console.log('_render clearContext');
+                this.canvas.clearContext(this.canvas.contextTop);
+                fabric._freePathOnTopCanvas = false;
+            }
+            fabric.util.statistics.enableStatistics && fabric.util.statistics.calcPathTime(performance.now());
         },
         /**
          * Returns string representation of an instance
@@ -17970,6 +19935,18 @@ fabric.Rect = Rect;
             this.__objectSelectionTracker = this.__objectSelectionMonitor.bind(this, true);
             this.__objectSelectionDisposer = this.__objectSelectionMonitor.bind(this, false);
             this._firstLayoutDone = false;
+            // qn modifled
+            // group 添加 qn 标识
+            if (options && !options.qn) {
+                options.qn = fabric.util.genQn();
+            }
+            if (options.type === 'eraser') {
+                options.qn.t = 'eraser';
+            }
+            else {
+                options.qn.t = 'group';
+            }
+            console.log('group initialize', options);
             //  setting angle, skewX, skewY must occur after initial layout
             this.callSuper('initialize', Object.assign({}, options, { angle: 0, skewX: 0, skewY: 0 }));
             this.forEachObject(function (object) {
@@ -18140,6 +20117,9 @@ fabric.Rect = Rect;
          * @param {boolean} [removeParentTransform] true if object is in canvas coordinate plane
          */
         _enterGroup: function (object, removeParentTransform) {
+            // qn modified
+            // 保存原有的属性， 为undo/redo 取值
+            object.originalProps = JSON.parse(JSON.stringify(object));
             if (removeParentTransform) {
                 // can this be converted to utils (sendObjectToPlane)?
                 applyTransformToObject(object, multiplyTransformMatrices(invertTransform(this.calcTransformMatrix()), object.calcTransformMatrix()));
@@ -18779,6 +20759,14 @@ fabric.Rect = Rect;
         initialize: function (objects, options, objectsRelativeToGroup) {
             this.callSuper('initialize', objects, options, objectsRelativeToGroup);
             this.setCoords();
+            //qn modified
+            // 同步当前activeSelection
+            if (objects.length) {
+                console.log('active_selection', objects);
+                objects.forEach((obj) => {
+                    obj.hasBorders = obj.hasControls = false;
+                });
+            }
         },
         /**
          * @private
@@ -18846,7 +20834,13 @@ fabric.Rect = Rect;
          * @return {Boolean} [cancel]
          */
         onDeselect: function () {
+            this._objects.forEach((obj) => {
+                obj.hasBorders = obj.hasControls = true;
+            });
             this.removeAll();
+            // const qn = this.qn
+            // qn.t = 'ds'
+            // fabric.util.socket && fabric.util.socket.draw({qn: this.qn, oids: this._objects.map(i => i.qn.oids) })
             return false;
         },
         /**
@@ -19522,7 +21516,7 @@ fabric.Rect = Rect;
      * @param {AbortSignal} [options.signal] handle aborting, see https://developer.mozilla.org/en-US/docs/Web/API/AbortController/signal
      * @returns {Promise<fabric.Image>}
      */
-    fabric.Image.fromURL = function (url, options) {
+    fabric.Image.fromURL = function (url, options, callback) {
         return fabric.util.loadImage(url, options || {}).then(function (img) {
             return new fabric.Image(img, options);
         });
@@ -28180,4 +30174,1041 @@ function copyGLTo2DPutImageData(gl, pipelineState) {
             actionName: 'resizing',
         });
     }
+})(typeof exports !== 'undefined' ? exports : window);
+
+(function (global) {
+    /** ERASER_START */
+    var fabric = global.fabric, __drawClipPath = fabric.Object.prototype._drawClipPath;
+    var _needsItsOwnCache = fabric.Object.prototype.needsItsOwnCache;
+    var _toObject = fabric.Object.prototype.toObject;
+    var _getSvgCommons = fabric.Object.prototype.getSvgCommons;
+    var __createBaseClipPathSVGMarkup = fabric.Object.prototype._createBaseClipPathSVGMarkup;
+    var __createBaseSVGMarkup = fabric.Object.prototype._createBaseSVGMarkup;
+    fabric.Object.prototype.cacheProperties.push('eraser');
+    fabric.Object.prototype.stateProperties.push('eraser');
+    /**
+     * @fires erasing:end
+     */
+    fabric.util.object.extend(fabric.Object.prototype, {
+        /**
+         * Indicates whether this object can be erased by {@link fabric.EraserBrush}
+         * The `deep` option introduces fine grained control over a group's `erasable` property.
+         * When set to `deep` the eraser will erase nested objects if they are erasable, leaving the group and the other objects untouched.
+         * When set to `true` the eraser will erase the entire group. Once the group changes the eraser is propagated to its children for proper functionality.
+         * When set to `false` the eraser will leave all objects including the group untouched.
+         * @tutorial {@link http://fabricjs.com/erasing#erasable_property}
+         * @type boolean | 'deep'
+         * @default true
+         */
+        erasable: true,
+        /**
+         * @tutorial {@link http://fabricjs.com/erasing#eraser}
+         * @type fabric.Eraser
+         */
+        eraser: undefined,
+        /**
+         * @override
+         * @returns Boolean
+         */
+        needsItsOwnCache: function () {
+            return _needsItsOwnCache.call(this) || !!this.eraser;
+        },
+        /**
+         * draw eraser above clip path
+         * @override
+         * @private
+         * @param {CanvasRenderingContext2D} ctx
+         * @param {fabric.Object} clipPath
+         */
+        _drawClipPath: function (ctx, clipPath) {
+            __drawClipPath.call(this, ctx, clipPath);
+            if (this.eraser) {
+                //  update eraser size to match instance
+                var size = this._getNonTransformedDimensions();
+                this.eraser.isType('eraser') && this.eraser.set({
+                    width: size.x,
+                    height: size.y
+                });
+                __drawClipPath.call(this, ctx, this.eraser);
+            }
+        },
+        /**
+         * Returns an object representation of an instance
+         * @param {Array} [propertiesToInclude] Any properties that you might want to additionally include in the output
+         * @return {Object} Object representation of an instance
+         */
+        toObject: function (propertiesToInclude) {
+            var object = _toObject.call(this, ['erasable'].concat(propertiesToInclude));
+            if (this.eraser && !this.eraser.excludeFromExport) {
+                object.eraser = this.eraser.toObject(propertiesToInclude);
+            }
+            return object;
+        },
+        /* _TO_SVG_START_ */
+        /**
+         * Returns id attribute for svg output
+         * @override
+         * @return {String}
+         */
+        getSvgCommons: function () {
+            return _getSvgCommons.call(this) + (this.eraser ? 'mask="url(#' + this.eraser.clipPathId + ')" ' : '');
+        },
+        /**
+         * create svg markup for eraser
+         * use <mask> to achieve erasing for svg, credit: https://travishorn.com/removing-parts-of-shapes-in-svg-b539a89e5649
+         * must be called before object markup creation as it relies on the `clipPathId` property of the mask
+         * @param {Function} [reviver]
+         * @returns
+         */
+        _createEraserSVGMarkup: function (reviver) {
+            if (this.eraser) {
+                this.eraser.clipPathId = 'MASK_' + fabric.Object.__uid++;
+                return [
+                    '<mask id="', this.eraser.clipPathId, '" >',
+                    this.eraser.toSVG(reviver),
+                    '</mask>', '\n'
+                ].join('');
+            }
+            return '';
+        },
+        /**
+         * @private
+         */
+        _createBaseClipPathSVGMarkup: function (objectMarkup, options) {
+            return [
+                this._createEraserSVGMarkup(options && options.reviver),
+                __createBaseClipPathSVGMarkup.call(this, objectMarkup, options)
+            ].join('');
+        },
+        /**
+         * @private
+         */
+        _createBaseSVGMarkup: function (objectMarkup, options) {
+            return [
+                this._createEraserSVGMarkup(options && options.reviver),
+                __createBaseSVGMarkup.call(this, objectMarkup, options)
+            ].join('');
+        }
+        /* _TO_SVG_END_ */
+    });
+    fabric.util.object.extend(fabric.Group.prototype, {
+        /**
+         * @private
+         * @param {fabric.Path} path
+         * @returns {Promise<fabric.Path[]>}
+         */
+        _addEraserPathToObjects: function (path) {
+            return Promise.all(this._objects.map(function (object) {
+                return fabric.EraserBrush.prototype._addPathToObjectEraser.call(fabric.EraserBrush.prototype, object, path);
+            }));
+        },
+        /**
+         * Applies the group's eraser to its objects
+         * @tutorial {@link http://fabricjs.com/erasing#erasable_property}
+         * @returns {Promise<fabric.Path[]|fabric.Path[][]|void>}
+         */
+        applyEraserToObjects: function () {
+            var _this = this, eraser = this.eraser;
+            return Promise.resolve()
+                .then(function () {
+                if (eraser) {
+                    delete _this.eraser;
+                    var transform = _this.calcTransformMatrix();
+                    return eraser.clone()
+                        .then(function (eraser) {
+                        var clipPath = _this.clipPath;
+                        return Promise.all(eraser.getObjects('path')
+                            .map(function (path) {
+                            //  first we transform the path from the group's coordinate system to the canvas'
+                            var originalTransform = fabric.util.multiplyTransformMatrices(transform, path.calcTransformMatrix());
+                            fabric.util.applyTransformToObject(path, originalTransform);
+                            return clipPath ?
+                                clipPath.clone()
+                                    .then(function (_clipPath) {
+                                    var eraserPath = fabric.EraserBrush.prototype.applyClipPathToPath.call(fabric.EraserBrush.prototype, path, _clipPath, transform);
+                                    return _this._addEraserPathToObjects(eraserPath);
+                                }, ['absolutePositioned', 'inverted']) :
+                                _this._addEraserPathToObjects(path);
+                        }));
+                    });
+                }
+            });
+        }
+    });
+    /**
+     * An object's Eraser
+     * @private
+     * @class fabric.Eraser
+     * @extends fabric.Group
+     * @memberof fabric
+     */
+    fabric.Eraser = fabric.util.createClass(fabric.Group, {
+        /**
+         * @readonly
+         * @static
+         */
+        type: 'eraser',
+        /**
+         * @default
+         */
+        originX: 'center',
+        /**
+         * @default
+         */
+        originY: 'center',
+        /**
+         * eraser should retain size
+         * dimensions should not change when paths are added or removed
+         * handled by {@link fabric.Object#_drawClipPath}
+         * @override
+         * @private
+         */
+        layout: 'fixed',
+        drawObject: function (ctx) {
+            ctx.save();
+            ctx.fillStyle = 'black';
+            ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+            ctx.restore();
+            this.callSuper('drawObject', ctx);
+        },
+        /* _TO_SVG_START_ */
+        /**
+         * Returns svg representation of an instance
+         * use <mask> to achieve erasing for svg, credit: https://travishorn.com/removing-parts-of-shapes-in-svg-b539a89e5649
+         * for masking we need to add a white rect before all paths
+         *
+         * @param {Function} [reviver] Method for further parsing of svg representation.
+         * @return {String} svg representation of an instance
+         */
+        _toSVG: function (reviver) {
+            var svgString = ['<g ', 'COMMON_PARTS', ' >\n'];
+            var x = -this.width / 2, y = -this.height / 2;
+            var rectSvg = [
+                '<rect ', 'fill="white" ',
+                'x="', x, '" y="', y,
+                '" width="', this.width, '" height="', this.height,
+                '" />\n'
+            ].join('');
+            svgString.push('\t\t', rectSvg);
+            for (var i = 0, len = this._objects.length; i < len; i++) {
+                svgString.push('\t\t', this._objects[i].toSVG(reviver));
+            }
+            svgString.push('</g>\n');
+            return svgString;
+        },
+        /* _TO_SVG_END_ */
+    });
+    /**
+     * Returns instance from an object representation
+     * @static
+     * @memberOf fabric.Eraser
+     * @param {Object} object Object to create an Eraser from
+     * @returns {Promise<fabric.Eraser>}
+     */
+    fabric.Eraser.fromObject = function (object) {
+        var objects = object.objects || [], options = fabric.util.object.clone(object, true);
+        delete options.objects;
+        return Promise.all([
+            fabric.util.enlivenObjects(objects),
+            fabric.util.enlivenObjectEnlivables(options)
+        ]).then(function (enlivedProps) {
+            return new fabric.Eraser(enlivedProps[0], Object.assign(options, enlivedProps[1]), true);
+        });
+    };
+    var __renderOverlay = fabric.Canvas.prototype._renderOverlay;
+    /**
+     * @fires erasing:start
+     * @fires erasing:end
+     */
+    fabric.util.object.extend(fabric.Canvas.prototype, {
+        /**
+         * Used by {@link #renderAll}
+         * @returns boolean
+         */
+        isErasing: function () {
+            return (this.isDrawingMode &&
+                this.freeDrawingBrush &&
+                this.freeDrawingBrush.type === 'eraser' &&
+                this.freeDrawingBrush._isErasing);
+        },
+        /**
+         * While erasing the brush clips out the erasing path from canvas
+         * so we need to render it on top of canvas every render
+         * @param {CanvasRenderingContext2D} ctx
+         */
+        _renderOverlay: function (ctx) {
+            __renderOverlay.call(this, ctx);
+            this.isErasing() && this.freeDrawingBrush._render();
+        }
+    });
+    /**
+     * EraserBrush class
+     * Supports selective erasing meaning that only erasable objects are affected by the eraser brush.
+     * Supports **inverted** erasing meaning that the brush can "undo" erasing.
+     *
+     * In order to support selective erasing, the brush clips the entire canvas
+     * and then draws all non-erasable objects over the erased path using a pattern brush so to speak (masking).
+     * If brush is **inverted** there is no need to clip canvas. The brush draws all erasable objects without their eraser.
+     * This achieves the desired effect of seeming to erase or unerase only erasable objects.
+     * After erasing is done the created path is added to all intersected objects' `eraser` property.
+     *
+     * In order to update the EraserBrush call `preparePattern`.
+     * It may come in handy when canvas changes during erasing (i.e animations) and you want the eraser to reflect the changes.
+     *
+     * @tutorial {@link http://fabricjs.com/erasing}
+     * @class fabric.EraserBrush
+     * @extends fabric.PencilBrush
+     * @memberof fabric
+     */
+    fabric.EraserBrush = fabric.util.createClass(fabric.PencilBrush, 
+    /** @lends fabric.EraserBrush.prototype */ {
+        type: 'eraser',
+        /**
+         * When set to `true` the brush will create a visual effect of undoing erasing
+         * @type boolean
+         */
+        inverted: false,
+        /**
+         * Used to fix https://github.com/fabricjs/fabric.js/issues/7984
+         * Reduces the path width while clipping the main context, resulting in a better visual overlap of both contexts
+         * @type number
+         */
+        erasingWidthAliasing: 4,
+        /**
+         * @private
+         */
+        _isErasing: false,
+        /**
+         *
+         * @private
+         * @param {fabric.Object} object
+         * @returns boolean
+         */
+        _isErasable: function (object) {
+            return object.erasable !== false;
+        },
+        /**
+         * @private
+         * This is designed to support erasing a collection with both erasable and non-erasable objects while maintaining object stacking.\
+         * Iterates over collections to allow nested selective erasing.\
+         * Prepares objects before rendering the pattern brush.\
+         * If brush is **NOT** inverted render all non-erasable objects.\
+         * If brush is inverted render all objects, erasable objects without their eraser.
+         * This will render the erased parts as if they were not erased in the first place, achieving an undo effect.
+         *
+         * @param {fabric.Collection} collection
+         * @param {fabric.Object[]} objects
+         * @param {CanvasRenderingContext2D} ctx
+         * @param {{ visibility: fabric.Object[], eraser: fabric.Object[], collection: fabric.Object[] }} restorationContext
+         */
+        _prepareCollectionTraversal: function (collection, objects, ctx, restorationContext) {
+            objects.forEach(function (obj) {
+                var dirty = false;
+                if (obj.forEachObject && obj.erasable === 'deep') {
+                    //  traverse
+                    this._prepareCollectionTraversal(obj, obj._objects, ctx, restorationContext);
+                }
+                else if (!this.inverted && obj.erasable && obj.visible) {
+                    //  render only non-erasable objects
+                    obj.visible = false;
+                    restorationContext.visibility.push(obj);
+                    dirty = true;
+                }
+                else if (this.inverted && obj.erasable && obj.eraser && obj.visible) {
+                    //  render all objects without eraser
+                    var eraser = obj.eraser;
+                    obj.eraser = undefined;
+                    obj.dirty = true;
+                    restorationContext.eraser.push([obj, eraser]);
+                    dirty = true;
+                }
+                if (dirty && collection instanceof fabric.Object) {
+                    collection.dirty = true;
+                    restorationContext.collection.push(collection);
+                }
+            }, this);
+        },
+        /**
+         * Prepare the pattern for the erasing brush
+         * This pattern will be drawn on the top context after clipping the main context,
+         * achieving a visual effect of erasing only erasable objects
+         * @private
+         * @param {fabric.Object[]} [objects]  override default behavior by passing objects to render on pattern
+         */
+        preparePattern: function (objects) {
+            if (!this._patternCanvas) {
+                this._patternCanvas = fabric.util.createCanvasElement();
+            }
+            var canvas = this._patternCanvas;
+            objects = objects || this.canvas._objectsToRender || this.canvas._objects;
+            canvas.width = this.canvas.width;
+            canvas.height = this.canvas.height;
+            var patternCtx = canvas.getContext('2d');
+            if (this.canvas._isRetinaScaling()) {
+                var retinaScaling = this.canvas.getRetinaScaling();
+                this.canvas.__initRetinaScaling(retinaScaling, canvas, patternCtx);
+            }
+            var backgroundImage = this.canvas.backgroundImage, bgErasable = backgroundImage && this._isErasable(backgroundImage), overlayImage = this.canvas.overlayImage, overlayErasable = overlayImage && this._isErasable(overlayImage);
+            if (!this.inverted && ((backgroundImage && !bgErasable) || !!this.canvas.backgroundColor)) {
+                if (bgErasable) {
+                    this.canvas.backgroundImage = undefined;
+                }
+                this.canvas._renderBackground(patternCtx);
+                if (bgErasable) {
+                    this.canvas.backgroundImage = backgroundImage;
+                }
+            }
+            else if (this.inverted) {
+                var eraser = backgroundImage && backgroundImage.eraser;
+                if (eraser) {
+                    backgroundImage.eraser = undefined;
+                    backgroundImage.dirty = true;
+                }
+                this.canvas._renderBackground(patternCtx);
+                if (eraser) {
+                    backgroundImage.eraser = eraser;
+                    backgroundImage.dirty = true;
+                }
+            }
+            patternCtx.save();
+            patternCtx.transform.apply(patternCtx, this.canvas.viewportTransform);
+            var restorationContext = { visibility: [], eraser: [], collection: [] };
+            this._prepareCollectionTraversal(this.canvas, objects, patternCtx, restorationContext);
+            this.canvas._renderObjects(patternCtx, objects);
+            restorationContext.visibility.forEach(function (obj) { obj.visible = true; });
+            restorationContext.eraser.forEach(function (entry) {
+                var obj = entry[0], eraser = entry[1];
+                obj.eraser = eraser;
+                obj.dirty = true;
+            });
+            restorationContext.collection.forEach(function (obj) { obj.dirty = true; });
+            patternCtx.restore();
+            if (!this.inverted && ((overlayImage && !overlayErasable) || !!this.canvas.overlayColor)) {
+                if (overlayErasable) {
+                    this.canvas.overlayImage = undefined;
+                }
+                __renderOverlay.call(this.canvas, patternCtx);
+                if (overlayErasable) {
+                    this.canvas.overlayImage = overlayImage;
+                }
+            }
+            else if (this.inverted) {
+                var eraser = overlayImage && overlayImage.eraser;
+                if (eraser) {
+                    overlayImage.eraser = undefined;
+                    overlayImage.dirty = true;
+                }
+                __renderOverlay.call(this.canvas, patternCtx);
+                if (eraser) {
+                    overlayImage.eraser = eraser;
+                    overlayImage.dirty = true;
+                }
+            }
+        },
+        /**
+         * Sets brush styles
+         * @private
+         * @param {CanvasRenderingContext2D} ctx
+         */
+        _setBrushStyles: function (ctx) {
+            this.callSuper('_setBrushStyles', ctx);
+            ctx.strokeStyle = 'black';
+        },
+        /**
+         * **Customiztion**
+         *
+         * if you need the eraser to update on each render (i.e animating during erasing) override this method by **adding** the following (performance may suffer):
+         * @example
+         * ```
+         * if(ctx === this.canvas.contextTop) {
+         *  this.preparePattern();
+         * }
+         * ```
+         *
+         * @override fabric.BaseBrush#_saveAndTransform
+         * @param {CanvasRenderingContext2D} ctx
+         */
+        _saveAndTransform: function (ctx) {
+            this.callSuper('_saveAndTransform', ctx);
+            this._setBrushStyles(ctx);
+            ctx.globalCompositeOperation = ctx === this.canvas.getContext() ? 'destination-out' : 'destination-in';
+        },
+        /**
+         * We indicate {@link fabric.PencilBrush} to repaint itself if necessary
+         * @returns
+         */
+        needsFullRender: function () {
+            return true;
+        },
+        /**
+         *
+         * @param {Point} pointer
+         * @param {fabric.IEvent} options
+         * @returns
+         */
+        onMouseDown: function (pointer, options) {
+            if (!this.canvas._isMainEvent(options.e)) {
+                return;
+            }
+            this._prepareForDrawing(pointer);
+            // capture coordinates immediately
+            // this allows to draw dots (when movement never occurs)
+            this._captureDrawingPath(pointer);
+            //  prepare for erasing
+            this.preparePattern();
+            this._isErasing = true;
+            this.canvas.fire('erasing:start');
+            this._render();
+        },
+        /**
+         * Rendering Logic:
+         * 1. Use brush to clip canvas by rendering it on top of canvas (unnecessary if `inverted === true`)
+         * 2. Render brush with canvas pattern on top context
+         *
+         * @todo provide a better solution to https://github.com/fabricjs/fabric.js/issues/7984
+         */
+        _render: function () {
+            var ctx, lineWidth = this.width;
+            var t = this.canvas.getRetinaScaling(), s = 1 / t;
+            //  clip canvas
+            ctx = this.canvas.getContext();
+            //  a hack that fixes https://github.com/fabricjs/fabric.js/issues/7984 by reducing path width
+            //  the issue's cause is unknown at time of writing (@ShaMan123 06/2022)
+            if (lineWidth - this.erasingWidthAliasing > 0) {
+                this.width = lineWidth - this.erasingWidthAliasing;
+                this.callSuper('_render', ctx);
+                this.width = lineWidth;
+            }
+            //  render brush and mask it with pattern
+            ctx = this.canvas.contextTop;
+            this.canvas.clearContext(ctx);
+            ctx.save();
+            ctx.scale(s, s);
+            ctx.drawImage(this._patternCanvas, 0, 0);
+            ctx.restore();
+            this.callSuper('_render', ctx);
+        },
+        /**
+         * Creates fabric.Path object
+         * @override
+         * @private
+         * @param {(string|number)[][]} pathData Path data
+         * @return {fabric.Path} Path to add on canvas
+         * @returns
+         */
+        createPath: function (pathData) {
+            var path = this.callSuper('createPath', pathData);
+            path.globalCompositeOperation = this.inverted ? 'source-over' : 'destination-out';
+            path.stroke = this.inverted ? 'white' : 'black';
+            return path;
+        },
+        /**
+         * Utility to apply a clip path to a path.
+         * Used to preserve clipping on eraser paths in nested objects.
+         * Called when a group has a clip path that should be applied to the path before applying erasing on the group's objects.
+         * @param {fabric.Path} path The eraser path in canvas coordinate plane
+         * @param {fabric.Object} clipPath The clipPath to apply to the path
+         * @param {number[]} clipPathContainerTransformMatrix The transform matrix of the object that the clip path belongs to
+         * @returns {fabric.Path} path with clip path
+         */
+        applyClipPathToPath: function (path, clipPath, clipPathContainerTransformMatrix) {
+            var pathInvTransform = fabric.util.invertTransform(path.calcTransformMatrix()), clipPathTransform = clipPath.calcTransformMatrix(), transform = clipPath.absolutePositioned ?
+                pathInvTransform :
+                fabric.util.multiplyTransformMatrices(pathInvTransform, clipPathContainerTransformMatrix);
+            //  when passing down a clip path it becomes relative to the parent
+            //  so we transform it acoordingly and set `absolutePositioned` to false
+            clipPath.absolutePositioned = false;
+            fabric.util.applyTransformToObject(clipPath, fabric.util.multiplyTransformMatrices(transform, clipPathTransform));
+            //  We need to clip `path` with both `clipPath` and it's own clip path if existing (`path.clipPath`)
+            //  so in turn `path` erases an object only where it overlaps with all it's clip paths, regardless of how many there are.
+            //  this is done because both clip paths may have nested clip paths of their own (this method walks down a collection => this may reccur),
+            //  so we can't assign one to the other's clip path property.
+            path.clipPath = path.clipPath ? fabric.util.mergeClipPaths(clipPath, path.clipPath) : clipPath;
+            return path;
+        },
+        /**
+         * Utility to apply a clip path to a path.
+         * Used to preserve clipping on eraser paths in nested objects.
+         * Called when a group has a clip path that should be applied to the path before applying erasing on the group's objects.
+         * @param {fabric.Path} path The eraser path
+         * @param {fabric.Object} object The clipPath to apply to path belongs to object
+         * @returns {Promise<fabric.Path>}
+         */
+        clonePathWithClipPath: function (path, object) {
+            var objTransform = object.calcTransformMatrix();
+            var clipPath = object.clipPath;
+            var _this = this;
+            return Promise.all([
+                path.clone(),
+                clipPath.clone(['absolutePositioned', 'inverted'])
+            ]).then(function (clones) {
+                return _this.applyClipPathToPath(clones[0], clones[1], objTransform);
+            });
+        },
+        /**
+         * Adds path to object's eraser, walks down object's descendants if necessary
+         *
+         * @public
+         * @fires erasing:end on object
+         * @param {fabric.Object} obj
+         * @param {fabric.Path} path
+         * @param {Object} [context] context to assign erased objects to
+         * @returns {Promise<fabric.Path | fabric.Path[]>}
+         */
+        _addPathToObjectEraser: function (obj, path, context) {
+            var _this = this;
+            //  object is collection, i.e group
+            if (obj.forEachObject && obj.erasable === 'deep') {
+                var targets = obj._objects.filter(function (_obj) {
+                    return _obj.erasable;
+                });
+                if (targets.length > 0 && obj.clipPath) {
+                    return this.clonePathWithClipPath(path, obj)
+                        .then(function (_path) {
+                        return Promise.all(targets.map(function (_obj) {
+                            return _this._addPathToObjectEraser(_obj, _path, context);
+                        }));
+                    });
+                }
+                else if (targets.length > 0) {
+                    return Promise.all(targets.map(function (_obj) {
+                        return _this._addPathToObjectEraser(_obj, path, context);
+                    }));
+                }
+                return;
+            }
+            //  prepare eraser
+            var eraser = obj.eraser;
+            if (!eraser) {
+                // qn modified
+                // 新建eraser group 添加 标识
+                eraser = new fabric.Eraser(null, { type: 'eraser' });
+                obj.eraser = eraser;
+            }
+            //  clone and add path
+            return path.clone()
+                .then(function (path) {
+                // http://fabricjs.com/using-transformations
+                var desiredTransform = fabric.util.multiplyTransformMatrices(fabric.util.invertTransform(obj.calcTransformMatrix()), path.calcTransformMatrix());
+                fabric.util.applyTransformToObject(path, desiredTransform);
+                eraser.add(path);
+                console.log('====addEraserPath _addPathToObjectEraser====', eraser, path);
+                obj.set('dirty', true);
+                obj.fire('erasing:end', {
+                    path: path
+                });
+                if (context) {
+                    (obj.group ? context.subTargets : context.targets).push(obj);
+                    //context.paths.set(obj, path);
+                }
+                return path;
+            });
+        },
+        // 删除指定path
+        _removePathToObjectEraser: function (obj, path, context) {
+            //  object is collection, i.e group
+            // if (obj.forEachObject && obj.erasable === 'deep') {
+            //   var targets = obj._objects.filter(function (_obj) {
+            //     return _obj.erasable;
+            //   });
+            //   if (targets.length > 0 && obj.clipPath) {
+            //     return this.clonePathWithClipPath(path, obj)
+            //       .then(function (_path) {
+            //         return Promise.all(targets.map(function (_obj) {
+            //           return _this._addPathToObjectEraser(_obj, _path, context);
+            //         }));
+            //       });
+            //   }
+            //   else if (targets.length > 0) {
+            //     return Promise.all(targets.map(function (_obj) {
+            //       return _this._addPathToObjectEraser(_obj, path, context);
+            //     }));
+            //   }
+            //   return;
+            // }
+            //  prepare eraser
+            var eraser = obj.eraser;
+            // if (!eraser) {
+            //   // qn modified
+            //   // 新建eraser group 添加 标识
+            //   eraser = new fabric.Eraser(null, {type: 'eraser'});
+            //   obj.eraser = eraser;
+            // }
+            //  clone and add path
+            // const index = eraser._objects.findIndex(obj => obj.qn.oid === path.qn.oid)
+            // if (index > -1) {
+            //   eraser._objects.splice(index, 1);
+            //   if (!eraser._objects.length) {
+            //     delete obj.eraser
+            //   }
+            //   obj.set('dirty', true);
+            //   }
+            // return Promise.resolve(path)
+            return path.clone()
+                .then(function (path) {
+                // http://fabricjs.com/using-transformations
+                var desiredTransform = fabric.util.multiplyTransformMatrices(fabric.util.invertTransform(obj.calcTransformMatrix()), path.calcTransformMatrix());
+                fabric.util.applyTransformToObject(path, desiredTransform);
+                const index = eraser._objects.findIndex(obj => obj.qn.oid === path.qn.oid);
+                console.log('====removeEraserPath index====', index);
+                if (index > -1) {
+                    eraser._objects.splice(index, 1);
+                    //   if (!eraser._objects.length) {
+                    //     delete obj.eraser
+                    //  }
+                    console.log('====removeEraserPath====', eraser);
+                    obj.set('dirty', true);
+                }
+                // obj.fire('erasing:end', {
+                //   path: path
+                // });
+                // if (context) {
+                //   (obj.group ? context.subTargets : context.targets).push(obj);
+                //   //context.paths.set(obj, path);
+                // }
+                return path;
+            });
+        },
+        /**
+         * Add the eraser path to canvas drawables' clip paths
+         *
+         * @param {fabric.Canvas} source
+         * @param {fabric.Canvas} path
+         * @param {Object} [context] context to assign erased objects to
+         * @returns {Promise<fabric.Path[]|void>} eraser paths
+         */
+        applyEraserToCanvas: function (path, context) {
+            var canvas = this.canvas;
+            return Promise.all([
+                'backgroundImage',
+                'overlayImage',
+            ].map(function (prop) {
+                var drawable = canvas[prop];
+                return drawable && drawable.erasable &&
+                    this._addPathToObjectEraser(drawable, path)
+                        .then(function (path) {
+                        if (context) {
+                            context.drawables[prop] = drawable;
+                            //context.paths.set(drawable, path);
+                        }
+                        return path;
+                    });
+            }, this));
+        },
+        /**
+         * On mouseup after drawing the path on contextTop canvas
+         * we use the points captured to create an new fabric path object
+         * and add it to every intersected erasable object.
+         */
+        _finalizeAndAddPath: function () {
+            var ctx = this.canvas.contextTop, canvas = this.canvas;
+            ctx.closePath();
+            // if (this.decimate) {
+            //   this._points = this.decimatePoints(this._points, this.decimate);
+            // }
+            // clear
+            canvas.clearContext(canvas.contextTop);
+            this._isErasing = false;
+            // 生成当前path的qn, 这是一个全局对象
+            fabric.freeDrawObject = fabric.util.genQn({ t: 'fp' });
+            var pathData = this._points && this._points.length > 1 ?
+                this.convertPointsToSVGPath(this._points) :
+                null;
+            if (!pathData || this._isEmptySVGPath(pathData)) {
+                canvas.fire('erasing:end');
+                // do not create 0 width/height paths, as they are
+                // rendered inconsistently across browsers
+                // Firefox 4, for example, renders a dot,
+                // whereas Chrome 10 renders nothing
+                canvas.requestRenderAll();
+                return;
+            }
+            // 生成当前path的qn, 这是一个全局对象
+            fabric.freeDrawObject.t = 'eraser';
+            var path = this.createPath(pathData);
+            //  needed for `intersectsWithObject`
+            path.setCoords();
+            //  commense event sequence
+            canvas.fire('before:path:created', { path: path });
+            // finalize erasing
+            var _this = this;
+            let needHistory = false;
+            var context = {
+                targets: [],
+                subTargets: [],
+                //paths: new Map(),
+                drawables: {}
+            };
+            var tasks = canvas._objects.map(function (obj) {
+                if (obj.erasable && obj.intersectsWithObject(path, true, true)) {
+                    needHistory = true;
+                    return _this._addPathToObjectEraser(obj, path, context);
+                }
+                else {
+                    return false;
+                }
+                // return obj.erasable && obj.intersectsWithObject(path, true, true) &&
+                //   _this._addPathToObjectEraser(obj, path, context);
+            });
+            tasks.push(_this.applyEraserToCanvas(path, context));
+            if (needHistory) {
+                // 添加到历史栈
+                fabric.util.history && fabric.util.history.push({
+                    type: 'eraser',
+                    objects: [path]
+                });
+            }
+            return Promise.all(tasks)
+                .then(function () {
+                //  fire erasing:end
+                canvas.fire('erasing:end', Object.assign(context, {
+                    path: path
+                }));
+                console.log('eraser:end', Object.assign(context, {
+                    path: path
+                }));
+                // 同步当前橡皮擦轨迹
+                // 同步新增object
+                const options = getSyncOptions(path);
+                options.qn.t = 'eraser';
+                options.qn.oids = context.targets.map(i => i.qn.oid);
+                if (path.qn.sync) {
+                    console.log('========== sync ===========', options);
+                    fabric.util.socket && fabric.util.socket.draw(options);
+                }
+                canvas.requestRenderAll();
+                _this._resetShadow();
+                // fire event 'path' created
+                canvas.fire('path:created', { path: path });
+            });
+        },
+        /**
+         * 根据橡皮檫轨迹删除
+         * @returns
+         */
+        _renderEraserByPath: function (canvas, path) {
+            this.canvas = canvas;
+            path.globalCompositeOperation = 'destination-out';
+            this._isErasing = true;
+            //  needed for `intersectsWithObject`
+            path.setCoords();
+            //  commense event sequence
+            canvas.fire('before:path:created', { path: path });
+            // finalize erasing
+            var _this = this;
+            var context = {
+                targets: [],
+                subTargets: [],
+                //paths: new Map(),
+                drawables: {}
+            };
+            var tasks = canvas._objects.map(function (obj) {
+                console.log('====addEraserPath _renderEraserByPath====', obj.intersectsWithObject(path, true, true));
+                return obj.erasable &&
+                    _this._addPathToObjectEraser(obj, path, context);
+            });
+            tasks.push(_this.applyEraserToCanvas(path, context));
+            return Promise.all(tasks)
+                .then(function () {
+                //  fire erasing:end
+                canvas.fire('erasing:end', Object.assign(context, {
+                    path: path
+                }));
+                console.log('eraser:end', Object.assign(context, {
+                    path: path
+                }));
+                // 同步当前橡皮擦轨迹
+                // 同步新增object
+                // const options = getSyncOptions(path)
+                // options.qn.t = 'eraser'
+                // options.qn.oids = context.targets.map(i => i.qn.oid)
+                // if (path.qn.sync) {
+                //   console.log('========== sync ===========', options)
+                //   fabric.util.socket && fabric.util.socket.draw(options)
+                // }
+                _this._isErasing = false;
+                canvas.requestRenderAll();
+                _this._resetShadow();
+                // fire event 'path' created
+                canvas.fire('path:created', { path: path });
+            });
+        },
+        /**
+         * 根据轨迹恢复被删除部分
+         * @param canvas
+         * @param path
+         * @returns
+         */
+        _removeEraserByPath: async function (canvas, path) {
+            this.canvas = canvas;
+            // path.globalCompositeOperation = 'source-over';
+            this._isErasing = true;
+            //  needed for `intersectsWithObject`
+            path.setCoords();
+            //  commense event sequence
+            // canvas.fire('before:path:created', { path: path });
+            // finalize erasing
+            var _this = this;
+            var context = {
+                targets: [],
+                subTargets: [],
+                //paths: new Map(),
+                drawables: {}
+            };
+            console.log('====removeEraserPath _removeEraserByPath====', canvas._objects, path);
+            for (let i = 0; i < canvas._objects.length; i++) {
+                const obj = canvas._objects[i];
+                console.log('====removeEraserPath intersectsWithObject====', obj.erasable);
+                if (obj.erasable && obj.eraser) {
+                    await _this._removePathToObjectEraser(obj, path, context);
+                }
+            }
+            // canvas._objects.forEach(function (obj) {
+            //   obj.erasable && obj.intersectsWithObject(path, true, true) &&
+            //     _this._removePathToObjectEraser(obj, path, context);
+            // });
+            // tasks.push(_this.applyEraserToCanvas(path, context));
+            canvas.requestRenderAll();
+            // return Promise.all(tasks)
+            //   .then(function () {
+            //     //  fire erasing:end
+            //     // canvas.fire('erasing:end', Object.assign(context, {
+            //     //   path: path
+            //     // }));
+            //     // console.log('eraser:end', Object.assign(context, {
+            //     //   path: path
+            //     // }))
+            //     // 同步当前橡皮擦轨迹
+            //     // 同步新增object
+            //     // const options = getSyncOptions(path)
+            //     // options.qn.t = 'eraser'
+            //     // options.qn.oids = context.targets.map(i => i.qn.oid)
+            //     // if (path.qn.sync) {
+            //     //   console.log('========== sync ===========', options)
+            //     //   fabric.util.socket && fabric.util.socket.draw(options)
+            //     // }
+            //     _this._isErasing = false;
+            //     canvas.requestRenderAll();
+            //     _this._resetShadow();
+            //     // fire event 'path' created
+            //     // canvas.fire('path:created', { path: path });
+            //   });
+        }
+    });
+    /** ERASER_END */
+})(typeof exports !== 'undefined' ? exports : window);
+
+(function (global) {
+    var fabric = global.fabric;
+    /**
+     * 通过轨迹选中
+     */
+    fabric.TrackBrush = fabric.util.createClass(fabric.PencilBrush, 
+    /** @lends fabric.EraserBrush.prototype */ {
+        type: 'track',
+        /**
+         *
+         * @param {Point} pointer
+         * @param {fabric.IEvent} options
+         * @returns
+         */
+        onMouseDown: function (pointer, options) {
+            if (!this.canvas._isMainEvent(options.e)) {
+                return;
+            }
+            // this.canvas.isTrackBrush = true
+            this._prepareForDrawing(pointer);
+            // capture coordinates immediately
+            // this allows to draw dots (when movement never occurs)
+            // this._captureDrawingPath(pointer);
+            // this._render();
+        },
+        onMouseUp: function (options) {
+            if (!this.canvas._isMainEvent(options.e)) {
+                return true;
+            }
+            this.drawStraightLine = false;
+            this.oldEnd = undefined;
+            this._finalizeAndAddPath();
+            // this.canvas.isTrackBrush = false
+            this.canvas.selection = true;
+            this.canvas.isDrawingMode = false;
+            this.canvas.clearContext(this.canvas.contextTop);
+            return false;
+        },
+        /**
+         * Creates fabric.Path object
+         * @override
+         * @private
+         * @param {(string|number)[][]} pathData Path data
+         * @return {fabric.Path} Path to add on canvas
+         * @returns
+         */
+        createPath: function (pathData) {
+            var path = this.callSuper('createPath', pathData);
+            return path;
+        },
+        /**
+         * On mouseup after drawing the path on contextTop canvas
+         * we use the points captured to create an new fabric path object
+         * and add it to every intersected erasable object.
+         */
+        _finalizeAndAddPath: function (e) {
+            console.time('====相交选中时间====');
+            var ctx = this.canvas.contextTop, canvas = this.canvas;
+            ctx.closePath();
+            // clear
+            canvas.clearContext(canvas.contextTop);
+            var pathData = this._points && this._points.length > 1 ?
+                this.convertPointsToSVGPath(this._points, false) :
+                null;
+            var path = this.createPath(pathData);
+            //  needed for `intersectsWithObject`
+            path.setCoords();
+            // todo: get selectObjects on trackBrush move
+            const selectObjects = canvas._objects.filter(function (obj) {
+                // if (obj.qn.t === 'path') {
+                //     return _this.checkPathIntersect(path, obj)
+                // } else if (obj.intersectsWithObject(path, false, true)) {
+                //     return true
+                // } else {
+                //     return false
+                // }
+                return obj.intersectsWithObject(path, false, true);
+            });
+            console.log('selectObjects', selectObjects);
+            canvas.discardActiveObject();
+            if (selectObjects.length) {
+                var sel = new fabric.ActiveSelection(selectObjects, {
+                    canvas: canvas,
+                });
+                canvas.setActiveObject(sel);
+            }
+            canvas.requestRenderAll();
+            console.timeEnd('====相交选中时间====');
+        },
+        /**
+         * 检查两个path相交
+         * @param path1
+         * @param path2
+         */
+        checkPathIntersect(path1, path2) {
+            let isIntersect = false;
+            for (let i = 0; i < path1.path.length; i++) {
+                const item1 = JSON.parse(JSON.stringify(path1.path[i]));
+                const point1 = item1.splice(1, 3);
+                for (let j = 0; j < path2.path.length; j++) {
+                    const item2 = JSON.parse(JSON.stringify(path2.path[j]));
+                    const point2 = item2.splice(1, 3);
+                    if (Math.abs(point1[0] - point2[0]) < 20 && Math.abs(point1[1] - point2[1]) < 20) {
+                        isIntersect = true;
+                        break;
+                    }
+                }
+            }
+            console.log('====isIntersect====', isIntersect);
+            return isIntersect;
+        }
+    });
+    /** ERASER_END */
 })(typeof exports !== 'undefined' ? exports : window);

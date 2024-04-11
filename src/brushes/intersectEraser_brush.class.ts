@@ -121,6 +121,16 @@ import { Point } from '../point.class';
       if (this._points.length > 1 && point.eq(this._points[this._points.length - 1])) {
         return false;
       }
+      //控制采样频率
+      // if (Math.abs(point.x - lastPoint.x) > 1 || Math.abs(clientY - lastMousePosition.y) > 1) {
+        //   lastMousePosition = { x: clientX, y: clientY };
+        //   // 执行需要的操作
+        // }
+      const lastPoint = this._points[this._points.length - 1]
+      if (this._points.length > 1 && (Math.abs(point.x - lastPoint.x) < 2 || Math.abs(point.y - lastPoint.y) < 10)) {
+        console.log('====通过判断距离来控制采样频率====', `x:${Math.abs(point.x - lastPoint.x)}`, `y:${Math.abs(point.y - lastPoint.y)}`, `lastPoint:${lastPoint}`)
+        return false
+      }
       this._points.push(point);
       return true;
     },
